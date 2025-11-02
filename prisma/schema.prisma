@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  USER
+}
+
+model User {
+  id          String @id @default(cuid())
+  accounts     Account[]
+  
+  name        String
+  email       String @unique
+  slug        String?
+  image       String?
+  role        Role    @default(USER)
+  dob         DateTime?
+  stripeId    String?
+  verified    Boolean @default(false)
+  mobile      String? @db.VarChar(15)
+
+  privateAds             PrivateAd[]
+  privateOffersSent      PrivateOffer[] @relation("offersSent")
+  privateOffersReceived  PrivateOffer[] @relation("offersReceived")
+
+  messagesSent ChatMessage[] @relation("sender")
+  chats        Chat[] @relation("chatUsers")
+
+  reviewsGiven    Review[] @relation("reviewer")
+  reviewsReceived Review[] @relation("reviewee")
+
+  createdAt   DateTime @default(now())
+}
+
+model Review {
+  id          String @id @default(cuid())
+
+  reviewerId  String
+  revieweeId  String
+  rating      Int @db.SmallInt
+
+  comment     String? @db.VarChar(1000)
+
+  reviewer    User @relation("reviewer", fields: [reviewerId], references: [id])
+  reviewee    User @relation("reviewee", fields: [revieweeId], references: [id])
+
+  createdAt   DateTime @default(now())  
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id])
+  userId            String
+
+  @@unique([provider, providerAccountId])
+}
+
+enum PrivateAdServiceType {
+  GFE
+  BJ
+}
+
+model PrivateAdService {
+  id          String @id @default(cuid())
+
+  privateAd   PrivateAd @relation(fields: [privateAdId], references: [id])
+  privateAdId String
+
+  type       PrivateAdServiceType @default(GFE)
+  length     Int // in minutes
+  price      Int
+
+  createdAt   DateTime @default(now())
+}
+
+model PrivateAd {
+  id          String @id @default(cuid())
+
+  title       String
+  description String
+
+  services PrivateAdService[]
+
+  active      Boolean @default(true)
+
+  worker        User @relation(fields: [workerId], references: [id])
+  workerId      String
+
+  createdAt   DateTime @default(now())
+
+}
+
+enum PrivateOfferStatus {
+  PENDING
+  CONFIRMED
+  DISPUTED
+  RELEASED
+}
+
+model PrivateOffer {
+  id            String @id @default(cuid())
+
+  amount        Int
+  adId          String
+
+  status        PrivateOfferStatus @default(PENDING)
+
+  expiresAt     DateTime?
+
+  client        User @relation("offersSent", fields: [clientId], references: [id])
+  clientId      String
+  worker        User @relation("offersReceived", fields: [workerId], references: [id])
+  workerId      String
+
+  createdAt     DateTime @default(now())
+}
+
+model Chat {
+  id        String @id @default(cuid())
+  messages  ChatMessage[]
+
+  users     User[]  @relation("chatUsers")
+
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String @id @default(cuid())
+
+  sender    User    @relation("sender", fields: [senderId], references: [id])
+  senderId  String
+
+  content   String @db.VarChar(1000)
+
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id])
+  chatId String
+}
