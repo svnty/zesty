@@ -135,6 +135,13 @@ enum PrivateAdServiceType {
   BJ
 }
 
+enum PrivateAdServiceCategory {
+  IN_CALL
+  OUT_CALL
+  PUBLIC_LOCATION
+  OVERNIGHT
+}
+
 model PrivateAdService {
   id          String @id @default(cuid())
 
@@ -142,8 +149,9 @@ model PrivateAdService {
   privateAdId String
 
   type       PrivateAdServiceType @default(GFE)
-  length     Int // in minutes
+  length     Int
   price      Int
+  category   PrivateAdServiceCategory @default(IN_CALL)
 
   createdAt   DateTime @default(now())
 }

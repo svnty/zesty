@@ -13,6 +13,14 @@ import {
 import { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 
+const images = [
+  { src: "/images/carousel/1.png", alt: "Kelly", name: "Kelly", price: "$600/hr" },
+  { src: "/images/carousel/2.png", alt: "Samantha", name: "Samantha", price: "$750/hr" },
+  { src: "/images/carousel/3.png", alt: "Coco", name: "Coco", price: "$290/hr" },
+  { src: "/images/carousel/4.png", alt: "Dolly", name: "Dolly", price: "$350/hr" },
+  { src: "/images/carousel/5.png", alt: "Sophie95", name: "Sophie95", price: "$500/hr" },
+];
+
 export default function Page() {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -58,7 +66,7 @@ export default function Page() {
       </div>
       <br />
 
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto w-full max-w-lg">
         <Carousel
           setApi={setApi}
           className="w-full overflow-visible"
@@ -71,22 +79,40 @@ export default function Page() {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <CarouselContent className="-ml-6 items-center py-20">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <CarouselItem key={index} className="pl-6 basis-1/3 shrink-0">
+          <CarouselContent className="-ml-6 items-center py-28">
+            {images.map((img, index) => (
+              <CarouselItem key={index} className="pl-6 basis-2/5 shrink-0">
                 <div className="p-2">
                   <Card
                     className={cn(
-                      "transition-all duration-300 ease-in-out relative",
+                      "transition-all duration-300 ease-in-out relative overflow-hidden p-0",
                       index === current
-                        ? "scale-150 opacity-100 shadow-xl z-10"
+                        ? "scale-150 opacity-100 shadow-md z-10"
                         : Math.abs(index - current) === 1
                           ? "scale-75 opacity-50"
                           : "scale-50 opacity-0 invisible"
                     )}
                   >
-                    <CardContent className="flex aspect-square items-center justify-center p-6">
-                      <span className="text-4xl font-semibold">{index + 1}</span>
+                    <CardContent className="relative aspect-1/2 p-0 w-full flex items-end">
+                      {/* Image */}
+                      <img 
+                        src={img.src}
+                        alt={img.alt}
+                        className="absolute inset-0 w-full h-full object-cover blur-xs"
+                      />
+                      
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+                      
+                      {/* Text content */}
+                      <div className="relative z-10 p-4 w-full">
+                        <h3 className="text-md font-semibold drop-shadow-lg text-white truncate">
+                          {img.name}
+                        </h3>
+                        <h6 className="text-sm font-medium drop-shadow-lg text-white/70">
+                          {img.price}
+                        </h6>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>

@@ -43,7 +43,7 @@ export default function MobileNav() {
     >
       <Link
         href={`/${lang}/escorts`}
-        className={getLinkClassName("/escorts")}
+        className={getLinkClassName("/escorts") + ` ml-3`}
         prefetch={false}
         onClick={() => handleClick("/escorts")}
       >
@@ -77,7 +77,6 @@ export default function MobileNav() {
         <TvMinimalPlay className={`h-6 w-6 transition-transform ${isClicked("/live") ? "scale-90" : ""}`} />
         <span className="text-xs">Live</span>
       </Link>
-
       <Link
         href={`/${lang}/events`}
         className={getLinkClassName("/events")}
@@ -87,10 +86,9 @@ export default function MobileNav() {
         <Calendar className={`h-6 w-6 transition-transform ${isClicked("/events") ? "scale-90" : ""}`} />
         <span className="text-xs">Events</span>
       </Link>
-
       <Link
         href={`/${lang}/dating`}
-        className={getLinkClassName("/dating")}
+        className={getLinkClassName("/dating") + ` mr-3`}
         prefetch={false}
         onClick={() => handleClick("/dating")}
       >
