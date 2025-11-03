@@ -1,8 +1,6 @@
 "use client";
 
-import { Logo } from "@/components/pro-blocks/logo";
 import Link from "next/link";
-import { Separator } from "@/components/ui/separator";
 
 const MAIN_NAV_LINKS = [
   { href: "#", label: "Home" },
@@ -18,7 +16,7 @@ const LEGAL_LINKS = [
   { href: "#", label: "Cookies Settings" },
 ];
 
-export function Footer1() {
+export function Footer() {
   return (
     <footer
       className="bg-background text-sm pb-6"
@@ -55,11 +53,7 @@ export function Footer1() {
               Terms of Service
             </Link>
             <a
-              onClick={() => {
-                localStorage.removeItem("zesty-cookie-consent");
-                localStorage.removeItem("zesty-cookieExpiryDate");
-                window.location.reload();
-              }}
+              onClick={(e) => window.dispatchEvent(new CustomEvent('zesty-cookie-banner'))}
               className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
             >
               Cookie Settings

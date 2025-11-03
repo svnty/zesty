@@ -1,29 +1,35 @@
-import { Account, Session, User } from "next-auth"
+import type { NextAuthOptions, Session, User } from "next-auth"
 import type { JWT } from "next-auth/jwt";
 import FacebookProvider from "next-auth/providers/facebook"
 import GoogleProvider from "next-auth/providers/google"
 import AzureADProvider from "next-auth/providers/azure-ad"
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma, withRetry } from "@/lib/prisma";
-import { AdapterUser } from "next-auth/adapters";
+import { prisma } from "@/lib/prisma";
+import type { AdapterUser } from "next-auth/adapters";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_ID!,
-      clientSecret: process.env.FACEBOOK_SECRET!
-    }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_ID!,
-      clientSecret: process.env.GOOGLE_SECRET!
-    }),
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-    }),
+    ...(process.env.FACEBOOK_ID && process.env.FACEBOOK_SECRET ? [
+      FacebookProvider({
+        clientId: process.env.FACEBOOK_ID,
+        clientSecret: process.env.FACEBOOK_SECRET
+      })
+    ] : []),
+    ...(process.env.GOOGLE_ID && process.env.GOOGLE_SECRET ? [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_ID,
+        clientSecret: process.env.GOOGLE_SECRET
+      })
+    ] : []),
+    ...(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET && process.env.AZURE_AD_TENANT_ID ? [
+      AzureADProvider({
+        clientId: process.env.AZURE_AD_CLIENT_ID,
+        clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+        tenantId: process.env.AZURE_AD_TENANT_ID,
+      })
+    ] : []),
   ],
   pages: {
     signIn: '/auth/signin',
@@ -34,7 +40,7 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }: {
       user: User | AdapterUser;
-      account: Account | null;
+      account: any | null;
       profile?: any;
     }) {
       // Azure AD returns verified corporate emails — safe to trust

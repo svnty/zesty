@@ -1,5 +1,7 @@
 import { authOptions } from "@/lib/auth";
-import NextAuth from "next-auth"
+import NextAuth from "next-auth";
+
+const handler = NextAuth(authOptions);
 
 declare module "next-auth" {
   interface Session {
@@ -13,4 +15,4 @@ declare module "next-auth" {
   }
 }
 
-export default NextAuth(authOptions);
+export { handler as GET, handler as POST };

@@ -48,6 +48,19 @@ export default function CookieBanner() {
   }, []);
 
   useEffect(() => {
+    const handleCookieBannerReset = () => {
+      localStorage.removeItem("zesty-cookie-consent");
+      localStorage.removeItem("zesty-cookieExpiryDate");
+      setIsClosing(false); // Reset the closing state
+      setOpen(true);
+    };
+
+    window.addEventListener("zesty-cookie-banner", handleCookieBannerReset);
+
+    return () => window.removeEventListener("zesty-cookie-banner", handleCookieBannerReset);
+  }, []);
+
+  useEffect(() => {
     // Check if the device is mobile based on window width
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth <= 1024); // Example breakpoint for mobile
@@ -67,21 +80,23 @@ export default function CookieBanner() {
 
   const handleCookieAccept = () => {
     setIsClosing(true);
+
     setTimeout(() => {
       setOpen(false);
-      
+      setMounted(true);
+
       if (typeof window !== "undefined") {
         const date = new Date();
         date.setDate(date.getDate() + 30);
         localStorage.setItem("zesty-cookie-consent", "true");
         localStorage.setItem("zesty-cookieExpiryDate", date.toISOString());
       }
-      window.location.reload();
     }, 300); // Match the transition duration
   };
 
   const handleCookieReject = () => {
     setIsClosing(true);
+
     setTimeout(() => {
       setOpen(false);
 
@@ -118,17 +133,14 @@ export default function CookieBanner() {
         localStorage.setItem("zesty-cookie-consent", "false");
         localStorage.setItem("zesty-cookieExpiryDate", date.toISOString());
       }
-
-      window.location.reload();
     }, 300); // Match the transition duration
   };
 
-  // Don't render anything on the server or before we've mounted on the client.
   if (!mounted) return null;
   if (!open) return null;
 
   return (
-    <>
+    <section>
       {/* Dim overlay that appears while the cookie banner is open. It sits under the banner (z-40) */}
       <div
         id="cookie-overlay"
@@ -159,6 +171,6 @@ export default function CookieBanner() {
           </div>
         </div>
       </div>
-    </>
+    </section>
   );
 }
