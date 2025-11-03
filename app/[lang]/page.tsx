@@ -93,8 +93,8 @@ export default function Page() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext id="carousel-next-button" />
+          <CarouselPrevious className='hidden sm:flex' />
+          <CarouselNext className='hidden sm:flex' id="carousel-next-button" />
         </Carousel>
       </div>
 
