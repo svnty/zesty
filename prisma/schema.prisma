@@ -130,6 +130,7 @@ model VerificationToken {
 }
 
 enum PrivateAdServiceType {
+  MEET_AND_GREET
   GFE
   BJ
 }
