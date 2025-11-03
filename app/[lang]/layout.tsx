@@ -1,10 +1,11 @@
 "use client";
 
-import MobileNav from "./(client-renders)/mobile-nav";
-import DesktopNav from "./(client-renders)/desktop-nav";
+import MobileNav from "@/app/[lang]/(client-renders)/mobile-nav";
+import DesktopNav from "@/app/[lang]/(client-renders)/desktop-nav";
 import { SessionProvider } from "next-auth/react";
 import { Footer1 } from "@/components/pro-blocks/landing-page/footers/footer-1";
-import Cookies from "./(client-renders)/cookies";
+import Cookies from "@/app/[lang]//(client-renders)/cookies";
+import ClientAnalytics from "@/app/[lang]/(client-renders)/analytics";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <Cookies />
 
       <MobileNav />
+      <ClientAnalytics />
     </main>
   );
-} 
+}
+
