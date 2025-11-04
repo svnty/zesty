@@ -1,64 +1,379 @@
 "use client";
 
-import { useId, useState, useEffect } from "react"
-import { ArrowRightIcon, Funnel, SearchIcon } from "lucide-react"
+import { useId, useState, useEffect, useCallback } from "react"
+import { ArrowRightIcon, Funnel, SearchIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
-import { Input } from "@/components/ui/input"
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import FilterComponent from '@/app/[lang]/escorts/(client-renders)/filter';
+import { Combobox, ComboboxInput, ComboboxPopup, ComboboxList, ComboboxItem, ComboboxEmpty } from "@/components/ui/combobox";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
+import FilterComponent, { type FilterData } from '@/app/[lang]/escorts/(client-renders)/filter';
+import { useParams } from "next/navigation";
+
+interface LocationSuggestion {
+  value: string
+  label: string
+  type: string
+  coordinates?: [number, number]
+}
 
 interface Feature {
+  id: string
+  adId: string
   name: string
   location: string
   price: string
   images: string[]
 }
 
-const featuredProfiles: Feature[] = [
-  {
-    name: "Featured Profile 1",
-    location: "New York, NY",
-    price: "$400/hr",
-    images: [
-      "https://flowbite.s3.amazonaws.com/docs/gallery/featured/image.jpg",
-      "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-1.jpg",
-      "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-2.jpg",
-      "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-3.jpg",
-      "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-4.jpg",
-      "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-5.jpg",
-    ]
-  },
-]
+interface EscortProfile {
+  id: string
+  adId: string
+  slug: string
+  location: string
+  price: string
+  age: number
+  gender: string
+  bodyType: string
+  race: string
+  images: string[]
+}
+
+// Fetch a random featured profile from the API
+async function fetchFeaturedProfile(): Promise<Feature | null> {
+  try {
+    const response = await fetch('/api/escorts/featured', {
+      cache: 'no-store' // Always get a fresh random profile
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch featured profile');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching featured profile:', error);
+    return null;
+  }
+}
+// FREE GEOCODING OPTIONS:
+
+// Option 1: Nominatim (OpenStreetMap) - Completely free, no API key needed
+// Rate limit: 1 request per second
+// Usage policy: https://operations.osmfoundation.org/policies/nominatim/
+async function searchLocationsNominatim(query: string): Promise<LocationSuggestion[]> {
+  if (!query || query.length < 2) return [];
+  
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent(query)}` +
+      `&format=json` +
+      `&addressdetails=1` +
+      `&limit=10` +
+      `&featuretype=settlement`, // Prefer cities, towns, suburbs over administrative boundaries
+      {
+        headers: {
+          'User-Agent': 'Zesty-App/1.0' // Required by Nominatim usage policy
+        }
+      }
+    );
+    
+    if (!response.ok) throw new Error('Failed to fetch locations');
+    
+    const data = await response.json();
+    
+    // Map and clean results
+    const results = data.map((place: any) => {
+      // Determine location type
+      let type = 'location';
+      if (place.type === 'city' || place.type === 'town') type = 'city';
+      else if (place.type === 'suburb' || place.type === 'neighbourhood' || place.type === 'quarter') type = 'suburb';
+      else if (place.type === 'state' || place.type === 'region') type = 'state';
+      else if (place.type === 'country') type = 'country';
+      
+      // Create a cleaner label - prefer shorter address formats
+      let label = place.display_name;
+      if (place.address) {
+        const parts = [];
+        // Priority: suburb > city > town > village > state > country
+        if (place.address.suburb) parts.push(place.address.suburb);
+        else if (place.address.city) parts.push(place.address.city);
+        else if (place.address.town) parts.push(place.address.town);
+        else if (place.address.village) parts.push(place.address.village);
+        
+        if (place.address.state) parts.push(place.address.state);
+        else if (place.address.country) parts.push(place.address.country);
+        
+        if (parts.length > 0) {
+          label = parts.join(', ');
+        }
+      }
+      
+      return {
+        value: place.place_id.toString(),
+        label,
+        type,
+        coordinates: [parseFloat(place.lon), parseFloat(place.lat)] as [number, number],
+      };
+    })
+    // Remove duplicates based on label
+    .filter((location: LocationSuggestion, index: number, self: LocationSuggestion[]) => 
+      index === self.findIndex((l) => l.label.toLowerCase() === location.label.toLowerCase())
+    );
+    
+    return results;
+  } catch (error) {
+    console.error('Error fetching locations:', error);
+    return [];
+  }
+}
+
+// Option 2: Geoapify - Free tier with 3,000 requests/day (hard cap, no surprise billing)
+// Get your free API key at: https://www.geoapify.com/
+// Free tier: 3,000 requests/day with hard cap
+const GEOAPIFY_API_KEY = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY || '';
+
+async function searchLocationsGeoapify(query: string): Promise<LocationSuggestion[]> {
+  if (!query || query.length < 2) return [];
+  if (!GEOAPIFY_API_KEY) {
+    console.warn('Geoapify API key not set, falling back to Nominatim');
+    return searchLocationsNominatim(query);
+  }
+  
+  try {
+    const response = await fetch(
+      `https://api.geoapify.com/v1/geocode/autocomplete?` +
+      `text=${encodeURIComponent(query)}` +
+      `&apiKey=${GEOAPIFY_API_KEY}` +
+      `&limit=10`
+    );
+    
+    if (!response.ok) throw new Error('Failed to fetch locations');
+    
+    const data = await response.json();
+    
+    return data.features.map((feature: any) => {
+      const props = feature.properties;
+      
+      // Determine location type
+      let type = 'location';
+      if (props.result_type === 'city') type = 'city';
+      else if (props.result_type === 'suburb') type = 'suburb';
+      else if (props.result_type === 'state') type = 'state';
+      else if (props.result_type === 'country') type = 'country';
+      
+      return {
+        value: props.place_id || feature.properties.osm_id,
+        label: props.formatted || props.name,
+        type,
+        coordinates: feature.geometry.coordinates as [number, number],
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching locations:', error);
+    return [];
+  }
+}
+
+// Choose which geocoding service to use
+// Default: Nominatim (completely free, no API key needed)
+// To use Geoapify: Set NEXT_PUBLIC_GEOAPIFY_API_KEY in your .env.local file
+const searchLocations = GEOAPIFY_API_KEY ? searchLocationsGeoapify : searchLocationsNominatim;
+
+// Fetch profiles from API with filters and pagination
+async function fetchProfiles(
+  location: LocationSuggestion | null,
+  filters: FilterData,
+  page: number,
+  limit: number = 30
+): Promise<{ profiles: EscortProfile[], total: number, totalPages: number }> {
+  if (!location || !location.coordinates) {
+    return { profiles: [], total: 0, totalPages: 0 };
+  }
+  
+  try {
+    const response = await fetch('/api/escorts/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        longitude: location.coordinates[0],
+        latitude: location.coordinates[1],
+        filters,
+        page,
+        limit 
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch profiles');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching profiles:', error);
+    return { profiles: [], total: 0, totalPages: 0 };
+  }
+}
+
+// Default/initial filter values
+const defaultFilters: FilterData = {
+  gender: [],
+  age: [18, 100],
+  bodyType: [],
+  race: [],
+};
 
 export default function Page() {
   const id = useId();
+  const { lang } = useParams();
+  
+  // Location search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSuggestion | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  
+  // Results state
+  const [profiles, setProfiles] = useState<EscortProfile[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
+  
+  // Featured profile state
+  const [featuredProfile, setFeaturedProfile] = useState<Feature | null>(null);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
+  
+  // Featured carousel state
   const [imageRotation, setImageRotation] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  // Filter state
+  const [filters, setFilters] = useState<FilterData>(defaultFilters);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Fetch featured profile on mount
+  useEffect(() => {
+    const loadFeaturedProfile = async () => {
+      setIsLoadingFeatured(true);
+      const profile = await fetchFeaturedProfile();
+      setFeaturedProfile(profile);
+      setIsLoadingFeatured(false);
+    };
+    
+    loadFeaturedProfile();
+  }, []);
+
+  // Debounced location search - only search when length > 1
+  useEffect(() => {
+    if (searchQuery.length <= 1) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingLocations(true);
+      const results = await searchLocations(searchQuery);
+      setLocationSuggestions(results);
+      setIsLoadingLocations(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Rotate images every 3 seconds with fade transition
   useEffect(() => {
+    if (!featuredProfile || featuredProfile.images.length === 0) return;
+    
     const interval = setInterval(() => {
       setIsTransitioning(true);
 
       setTimeout(() => {
-        setImageRotation((prev) => (prev + 1) % featuredProfiles[currentFeatureIndex].images.length);
+        setImageRotation((prev) => (prev + 1) % featuredProfile.images.length);
         setIsTransitioning(false);
       }, 300); // Half of the transition duration
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentFeatureIndex]);
+  }, [featuredProfile]);
 
-  const currentFeature = featuredProfiles[currentFeatureIndex];
-  const rotatedImages = [
-    ...currentFeature.images.slice(imageRotation),
-    ...currentFeature.images.slice(0, imageRotation)
-  ];
+  // Handler to update filters while dialog is open
+  const handleFilterChange = (newFilters: FilterData) => {
+    setFilters(newFilters);
+  };
+
+  // Handler for Apply Filters button - triggers search
+  const handleApplyFilters = async () => {
+    setIsDialogOpen(false);
+    setCurrentPage(1);
+    await performSearch(1);
+  };
+
+  // Handler for Reset Filters button
+  const handleResetFilters = async () => {
+    setFilters(defaultFilters);
+    setIsDialogOpen(false);
+    if (selectedLocation) {
+      setCurrentPage(1);
+      await performSearch(1);
+    }
+  };
+
+  // Perform search with current filters and location
+  const performSearch = async (page: number = currentPage) => {
+    // Only search if location is selected
+    if (!selectedLocation) return;
+    
+    setIsLoadingProfiles(true);
+    const result = await fetchProfiles(selectedLocation, filters, page);
+    setProfiles(result.profiles);
+    setTotalResults(result.total);
+    setTotalPages(result.totalPages);
+    setCurrentPage(page);
+    setIsLoadingProfiles(false);
+  };
+
+  // Handle location selection - automatically trigger search
+  const handleLocationSelect = async (value: string | null) => {
+    if (!value) return;
+    
+    const location = locationSuggestions.find(l => l.value === value);
+    if (location) {
+      setSelectedLocation(location);
+      setSearchQuery(location.label);
+      setCurrentPage(1);
+      
+      // Trigger search with current filters
+      setIsLoadingProfiles(true);
+      const result = await fetchProfiles(location, filters, 1);
+      setProfiles(result.profiles);
+      setTotalResults(result.total);
+      setTotalPages(result.totalPages);
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  // Calculate number of active filters
+  const activeFilterCount = 
+    filters.gender.length + 
+    filters.bodyType.length + 
+    filters.race.length + 
+    ((filters.age[0] !== 18 || filters.age[1] !== 100) ? 1 : 0);
+
+  // Only compute rotated images if we have a featured profile
+  const rotatedImages = featuredProfile ? [
+    ...featuredProfile.images.slice(imageRotation),
+    ...featuredProfile.images.slice(0, imageRotation)
+  ] : [];
 
   return (
     <article className="container mx-auto px-10 md:px-4">
@@ -80,50 +395,97 @@ export default function Page() {
 
       <section className="mb-4 flex flex-row w-full">
         <div className="relative flex w-full">
-          <Input
-            size="lg"
-            id={id}
-            className="peer ps-9 pe-9"
-            placeholder="Look in a city, or state"
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
-            <SearchIcon size={16} />
-          </div>
-          <button
-            className="absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md text-muted-foreground/80 transition-[color,box-shadow] outline-none hover:text-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Submit search"
-            type="submit"
+          <Combobox
+            value={selectedLocation?.value || null}
+            onValueChange={handleLocationSelect}
           >
-            <ArrowRightIcon size={16} aria-hidden="true" />
-          </button>
+            <div className="relative w-full">
+              <ComboboxInput
+                size="lg"
+                id={id}
+                className="peer ps-9 pe-9"
+                placeholder="Look in a city, or state"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                showTrigger={false}
+              />
+              <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
+                <SearchIcon size={16} />
+              </div>
+              <button
+                className="absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md text-muted-foreground/80 transition-[color,box-shadow] outline-none hover:text-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Submit search"
+                type="submit"
+              >
+                <ArrowRightIcon size={16} aria-hidden="true" />
+              </button>
+            </div>
+            
+            {/* Only show popup when actively searching (length > 1) */}
+            {searchQuery.length > 1 && (
+              <ComboboxPopup>
+                <ComboboxList>
+                  {isLoadingLocations ? (
+                    <div className="p-2 text-center text-sm text-muted-foreground">
+                      Loading locations...
+                    </div>
+                  ) : locationSuggestions.length === 0 ? (
+                    <ComboboxEmpty>No locations found.</ComboboxEmpty>
+                  ) : (
+                    <>
+                      {locationSuggestions.map((location) => (
+                        <ComboboxItem key={location.value} value={location.value}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{location.label}</span>
+                            <span className="text-xs text-muted-foreground capitalize">{location.type}</span>
+                          </div>
+                        </ComboboxItem>
+                      ))}
+                    </>
+                  )}
+                </ComboboxList>
+              </ComboboxPopup>
+            )}
+          </Combobox>
         </div>
         <div className="mx-2" />
         <div className="flex shrink">
           <TooltipProvider delay={100}>
             <Tooltip>
-              <Dialog>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <TooltipTrigger render={
                   <DialogTrigger render={
-                    <Button size="lg" variant="outline"><Funnel /></Button>
+                    <Button size="lg" variant="outline" className="relative">
+                      <Funnel />
+                      {activeFilterCount > 0 && (
+                        <Badge variant="destructive" className="absolute -top-2 left-full min-w-5 -translate-x-3.5 border-background px-1 py-[0.145rem] text-xs font-medium">
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
                   } />
                 } />
                 <TooltipContent side="bottom" className="max-sm:hidden">
                   <p>Advanced filtering</p>
                 </TooltipContent>
-                <DialogContent className="sm:min-w-xl rounded-2xl ">
+                <DialogContent className="sm:min-w-2xl rounded-2xl ">
                   <DialogHeader>
                     <DialogTitle>Filters</DialogTitle>
                     <DialogDescription>Refine your search results</DialogDescription>
                   </DialogHeader>
 
-                  <FilterComponent />
+                  <FilterComponent 
+                    filterData={filters}
+                    onFilterChange={handleFilterChange}
+                  />
 
                   <DialogFooter className="md:gap-6">
-                    <Button type="submit" variant="destructive-outline">Reset Filters</Button>
-                    <Button type="submit">Apply Filters</Button>
+                    <Button type="button" variant="destructive-outline" onClick={handleResetFilters}>
+                      Reset Filters
+                    </Button>
+                    <Button type="button" onClick={handleApplyFilters}>
+                      Apply Filters
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -132,87 +494,158 @@ export default function Page() {
         </div>
       </section>
 
-      {/* Show Featured section only when search is empty */}
-      {!searchQuery && (
+      {/* Show Featured section only when no location selected */}
+      {!selectedLocation && (
         <section className="md:max-w-[60%] mx-auto my-8">
           <h2 className="text-2xl font-bold mb-4">Featured escort</h2>
-          <Link href="#" className="block transition-transform hover:scale-[1.02]">
-            <div className="grid gap-4">
-              {/* Main featured image */}
-              <div className="relative w-full aspect-16/10 overflow-hidden rounded-lg bg-muted">
-                <img
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
-                  src={rotatedImages[0]}
-                  alt={currentFeature.name}
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-4 rounded-b-lg">
-                  <h3 className="text-white text-xl font-semibold">{currentFeature.name}</h3>
-                  <p className="text-white/90 text-sm">{currentFeature.location}</p>
-                  <p className="text-white font-bold mt-1">{currentFeature.price}</p>
+          
+          {isLoadingFeatured ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">Loading featured profile...</p>
+            </div>
+          ) : !featuredProfile ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">No featured profiles available.</p>
+            </div>
+          ) : (
+            <Link href={`/${lang}/escorts/${featuredProfile.id}`} className="block transition-transform hover:scale-[1.02]">
+              <div className="grid gap-4">
+                {/* Main featured image */}
+                <div className="relative w-full aspect-16/10 overflow-hidden rounded-lg bg-muted">
+                  <img
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
+                    src={rotatedImages[0]}
+                    alt={featuredProfile.name}
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-4 rounded-b-lg">
+                    <h3 className="text-white text-xl font-semibold">{featuredProfile.name}</h3>
+                    <p className="text-white/90 text-sm">{featuredProfile.location}</p>
+                    <p className="text-white font-bold mt-1">{featuredProfile.price}</p>
+                  </div>
+                </div>
+
+                {/* Thumbnail grid */}
+                <div className="grid grid-cols-5 gap-4">
+                  {rotatedImages.slice(1, 6).map((image, index) => (
+                    <div key={index} className="relative overflow-hidden rounded-lg aspect-square bg-muted">
+                      <img
+                        className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
+                        src={image}
+                        alt={`${featuredProfile.name} - Image ${index + 2}`}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
+            </Link>
+          )}
+        </section>
+      )}
 
-              {/* Thumbnail grid */}
-              <div className="grid grid-cols-5 gap-4">
-                {rotatedImages.slice(1, 6).map((image, index) => (
-                  <div key={index} className="relative overflow-hidden rounded-lg aspect-square bg-muted">
-                    <img
-                      className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
-                      src={image}
-                      alt={`${currentFeature.name} - Image ${index + 2}`}
-                    />
-                  </div>
+      {/* Filtered results section - only show when location is selected */}
+      {selectedLocation && (
+        <section className="mx-auto mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">
+              Results in {selectedLocation.label}
+            </h2>
+            <p className="text-muted-foreground">
+              {totalResults} {totalResults === 1 ? 'result' : 'results'} found
+            </p>
+          </div>
+          
+          {isLoadingProfiles ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">Loading...</p>
+            </div>
+          ) : profiles.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">No profiles match your criteria.</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={handleResetFilters}
+              >
+                Clear All Filters
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {profiles.map((profile) => (
+                  <Link 
+                    key={profile.id} 
+                    href={`/${lang}/escorts/${profile.id}`}
+                    className="block transition-transform hover:scale-[1.02]"
+                  >
+                    <div className="rounded-lg border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="relative aspect-square overflow-hidden bg-muted">
+                        <img
+                          className="w-full h-full object-cover"
+                          src={profile.images[0]}
+                          alt={profile.slug}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-1">{profile.slug}</h3>
+                        <p className="text-sm text-muted-foreground mb-2">{profile.location}</p>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Age: {profile.age}</span>
+                          <span className="font-bold text-primary">{profile.price}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
-            </div>
-          </Link>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex justify-center">
+                  <Pagination>
+                    <PaginationContent className="w-full justify-between">
+                      <PaginationItem>
+                        <PaginationLink
+                          className={cn(
+                            "aria-disabled:pointer-events-none aria-disabled:opacity-50",
+                            buttonVariants({ variant: "outline" })
+                          )}
+                          onClick={() => currentPage > 1 && performSearch(currentPage - 1)}
+                          aria-label="Go to previous page"
+                          aria-disabled={currentPage === 1 ? true : undefined}
+                          role={currentPage === 1 ? "link" : undefined}
+                        >
+                          <ChevronLeftIcon size={16} aria-hidden="true" />
+                        </PaginationLink>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <p className="text-sm text-muted-foreground" aria-live="polite">
+                          Page <span className="text-foreground">{currentPage}</span> of{" "}
+                          <span className="text-foreground">{totalPages}</span>
+                        </p>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationLink
+                          className={cn(
+                            "aria-disabled:pointer-events-none aria-disabled:opacity-50",
+                            buttonVariants({ variant: "outline" })
+                          )}
+                          onClick={() => currentPage < totalPages && performSearch(currentPage + 1)}
+                          aria-label="Go to next page"
+                          aria-disabled={currentPage === totalPages ? true : undefined}
+                          role={currentPage === totalPages ? "link" : undefined}
+                        >
+                          <ChevronRightIcon size={16} aria-hidden="true" />
+                        </PaginationLink>
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
-
-      {/* Search results section */}
-      {searchQuery && (
-        <section className="md:max-w-[60%] mx-auto mb-8">
-          <h2 className="text-2xl font-bold mb-4">Search Results for "{searchQuery}"</h2>
-          <p className="text-muted-foreground">No results found. Try a different search term.</p>
-        </section>
-      )}
-{/* 
-      <div className="flex min-h-[calc(100vh*0.55)] items-center justify-center p-4 mb-5 mt-5">
-        <div className="text-center space-y-6">
-          <svg
-            fill="currentColor"
-            className="w-24 h-24 mx-auto text-muted-foreground"
-            viewBox="0 0 24 24"
-            id="Layer_1"
-            data-name="Layer 1"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <style>{`
-              .cls-1 {
-                fill: none;
-                stroke: currentColor;
-                stroke-linecap: round;
-                stroke-linejoin: round;
-                stroke-width: 1.5px;
-              }
-            `}</style>
-            </defs>
-            <polygon className="cls-1" points="9.13 22.54 5.29 22.54 5.29 6.25 5.29 1.46 9.13 1.46 9.13 22.54" />
-            <polygon className="cls-1" points="1.46 6.25 22.54 6.25 22.54 5.29 9.13 1.46 5.29 1.46 1.46 5.29 1.46 6.25" />
-            <line className="cls-1" x1="23.5" y1="22.54" x2="0.5" y2="22.54" />
-            <path className="cls-1" d="M20.62,6.25V9.64a1.82,1.82,0,0,0,.9,1.63A1.92,1.92,0,1,1,18.71,13" />
-            <line className="cls-1" x1="9.13" y1="16.79" x2="5.29" y2="20.63" />
-            <line className="cls-1" x1="5.29" y1="12" x2="9.13" y2="15.83" />
-            <line className="cls-1" x1="9.13" y1="7.21" x2="5.29" y2="11.04" />
-          </svg>
-
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight">Under Construction</h1>
-            <p className="text-muted-foreground text-lg">This escort directory is currently being built. Check back soon!</p>
-          </div>
-        </div>
-      </div> */}
     </article>
   );
 }

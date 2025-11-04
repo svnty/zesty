@@ -1,15 +1,50 @@
 "use client"
 
-import { useState } from "react"
-
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mars, Transgender, Venus } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
-export default function Filter() {
-  const [value, setValue] = useState([18, 100]);
+// Define the shape of our filter data
+export interface FilterData {
+  gender: string[];
+  age: [number, number];
+  bodyType: string[];
+  race: string[];
+}
+
+// Props that the Filter component will receive from parent
+interface FilterProps {
+  filterData: FilterData;
+  onFilterChange: (filters: FilterData) => void;
+}
+
+export default function Filter({ filterData, onFilterChange }: FilterProps) {
+  // Helper functions to update specific filter fields
+  const updateGender = (gender: string, checked: boolean) => {
+    const newGender = checked
+      ? [...filterData.gender, gender]
+      : filterData.gender.filter(g => g !== gender);
+    onFilterChange({ ...filterData, gender: newGender });
+  };
+
+  const updateAge = (age: [number, number]) => {
+    onFilterChange({ ...filterData, age });
+  };
+
+  const updateBodyType = (bodyType: string, checked: boolean) => {
+    const newBodyType = checked
+      ? [...filterData.bodyType, bodyType]
+      : filterData.bodyType.filter(b => b !== bodyType);
+    onFilterChange({ ...filterData, bodyType: newBodyType });
+  };
+
+  const updateRace = (race: string, checked: boolean) => {
+    const newRace = checked
+      ? [...filterData.race, race]
+      : filterData.race.filter(r => r !== race);
+    onFilterChange({ ...filterData, race: newRace });
+  };
 
   return (
     <section>
@@ -28,7 +63,8 @@ export default function Filter() {
                   value={gender}
                   name="gender"
                   className="order-1 after:absolute after:inset-0"
-                  defaultChecked={false}
+                  checked={filterData.gender.includes(gender)}
+                  onCheckedChange={(checked) => updateGender(gender, checked as boolean)}
                 />
                 <Icon className="opacity-60" size={22} aria-hidden="true" />
               </div>
@@ -41,19 +77,19 @@ export default function Filter() {
           <div className="flex items-center justify-between gap-2">
             <Label className="leading-6">Age</Label>
             <output className="text-sm font-medium tabular-nums">
-              {value[0]} - {value[1]}
+              {filterData.age[0]} - {filterData.age[1]}
             </output>
           </div>
           <Slider
             min={18}
             max={100}
             name="age"
-            value={value}
+            value={filterData.age}
             onValueChange={(value) => {
               if (Array.isArray(value)) {
-                setValue(value);
+                updateAge(value as [number, number]);
               } else {
-                setValue([value as number, value as number]);
+                updateAge([value as number, value as number]);
               }
             }}
             aria-label="Age"
@@ -105,9 +141,12 @@ export default function Filter() {
             <Label key={id} htmlFor={`${id}-checkbox`} className="cursor-pointer">
               <div className="relative flex items-center dark:bg-neutral-800 gap-3 w-full rounded-md border border-input p-4 shadow-xs hover:border-primary/40 transition-colors has-data-[state=checked]:border-primary/50">
                 <Checkbox 
-                id={`${id}-checkbox`} 
-                name="body-type" 
-                className="shrink-0" />
+                  id={`${id}-checkbox`} 
+                  name="body-type"
+                  checked={filterData.bodyType.includes(id)}
+                  onCheckedChange={(checked) => updateBodyType(id, checked as boolean)}
+                  className="shrink-0" 
+                />
                 <div className="flex items-center gap-1 w-full justify-center md:justify-start">
                   {icon}
                   <div className="font-medium hidden sm:block text-sm text-center w-full justify-center">{label}</div>
@@ -117,17 +156,18 @@ export default function Filter() {
           ))}
         </div>
 
-        {/* Example filter: Price Range */}
         <div className="grid gap-2">
           <Label htmlFor="race">Race</Label>
           <ul className="items-center w-full text-sm font-medium dark:bg-neutral-800 border rounded-lg sm:flex">
-            {['white', 'asian', 'african', 'arabic', 'hispanic'].map((race, index) => (
-              <li className={`w-full sm:border-b-0 ${index < 4 ? 'sm:border-r border-b' : ''}`} key={index}>
+            {['white', 'asian', 'african', 'arabic', 'hispanic', 'desi'].map((race, index) => (
+              <li className={`w-full sm:border-b-0 ${index < 5 ? 'sm:border-r border-b' : ''}`} key={index}>
                 <label htmlFor={`${race}-checkbox`} className="flex items-center ps-3 py-3 w-full cursor-pointer hover:bg-muted/50 transition-colors">
                   <Checkbox 
                     id={`${race}-checkbox`} 
                     name="race" 
                     value={race}
+                    checked={filterData.race.includes(race)}
+                    onCheckedChange={(checked) => updateRace(race, checked as boolean)}
                     className="shrink-0" 
                   />
                   <span className="ms-2 text-sm font-medium">{race.charAt(0).toUpperCase() + race.slice(1)}</span>
