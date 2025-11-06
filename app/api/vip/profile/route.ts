@@ -41,6 +41,15 @@ export async function POST(req: NextRequest) {
             suburb: true,
             lastActive: true,
             createdAt: true,
+            images: {
+              where: {
+                default: true,
+              },
+              select: {
+                url: true,
+              },
+              take: 1,
+            },
           },
         },
         discountOffers: {
@@ -74,12 +83,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    vipPage.user.image = await withRetry(() => prisma.images.findFirst({
-      where: {
-        userId: vipPage?.user.id,
-        default: true,
-      },
-    })).then((img) => img?.url || null);
+    // Extract the image URL from the images array
+    const userImage = vipPage.user.images[0]?.url || null;
 
     // Check if current user has an active subscription
     let hasActiveSubscription = false;
@@ -201,7 +206,16 @@ export async function POST(req: NextRequest) {
       bannerUrl: vipPage.bannerUrl,
       subscriptionPrice: vipPage.subscriptionPrice,
       isFree: vipPage.isFree,
-      user: vipPage.user,
+      user: {
+        id: vipPage.user.id,
+        slug: vipPage.user.slug,
+        bio: vipPage.user.bio,
+        location: vipPage.user.location,
+        suburb: vipPage.user.suburb,
+        lastActive: vipPage.user.lastActive,
+        createdAt: vipPage.user.createdAt,
+        image: userImage,
+      },
       hasActiveSubscription,
       isOwnPage,
       totalContent: vipPage._count.content,
