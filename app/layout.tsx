@@ -30,6 +30,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className={htmlClass}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content={cookieTheme === "dark" ? "black" : "white"} />
       </head>

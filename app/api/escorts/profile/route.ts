@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const ad = await prisma.privateAd.findFirst({
       where: {
         worker: {
-          slug: slug
+          slug: decodeURIComponent(slug)
         },
         active: true,
       },

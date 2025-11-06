@@ -16,7 +16,8 @@ import {
   Dialog,
   DialogContent,
   DialogClose,
-} from "@/components/ui/dialog";
+  DialogTitle,
+} from "@/components/origin_ui_old/dialog";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EscortProfileData } from "../page";
@@ -578,6 +579,9 @@ export default function EscortSlugPage() {
 
       {/* Image Lightbox Dialog */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogTitle className="hidden">
+          Image Preview
+        </DialogTitle>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-0 bg-black/95 [&>button]:bg-white/40 [&>button]:hover:bg-white/60 [&>button]:text-white [&>button]:font-semibold [&>button]:h-10 [&>button]:w-10">
           {selectedImage && (
             <div className="flex items-center justify-center w-full h-full p-4">
