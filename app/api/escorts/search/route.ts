@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { Gender, BodyType, Race, DaysAvailable } from '@prisma/client';
 import { calculateDistance } from '@/lib/calculate-distance';
 import { calculateAge } from '@/lib/calculate-age';
@@ -37,6 +37,7 @@ type UserWithDistance = {
   lastActive: Date | null;
   daysAvailable: DaysAvailable[] | null;
   averageRating: number;
+  vip: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch all matching ACTIVE PrivateAds with their workers (users)
     // We filter by the worker's attributes, not the ad itself
-    const ads = await prisma.privateAd.findMany({
+    const ads = await withRetry(() => prisma.privateAd.findMany({
       where: {
         active: true,
         worker: where // Apply filters to the worker
@@ -127,6 +128,9 @@ export async function POST(request: NextRequest) {
             race: true,
             bodyType: true,
             lastActive: true,
+            vipPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -135,11 +139,11 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    });
+    }));
 
     // Get average ratings for all workers in one query
     const workerIds = ads.map(ad => ad.worker.id);
-    const ratingsData = await prisma.review.groupBy({
+    const ratingsData = await withRetry(() => prisma.review.groupBy({
       by: ['revieweeId'],
       where: {
         revieweeId: {
@@ -152,7 +156,7 @@ export async function POST(request: NextRequest) {
       _count: {
         rating: true
       }
-    });
+    }));
 
     // Create a map for quick lookup
     const ratingsMap = new Map(
@@ -194,6 +198,7 @@ export async function POST(request: NextRequest) {
           bodyType: user.bodyType,
           race: user.race,
           images: user.images,
+          vip: user.vipPage?.active || false,
           minPrice,
           maxPrice,
           distance,
@@ -250,6 +255,7 @@ export async function POST(request: NextRequest) {
         ad: user.ad,
         slug: user.slug,
         location: user.suburb,
+        vip: user.vip,
         distance: `${user.distance.toFixed(1)}km away`,
         price: user.minPrice && user.maxPrice
           ? (user.minPrice === user.maxPrice

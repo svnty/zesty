@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { calculateAge } from "@/lib/calculate-age";
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ad = await prisma.privateAd.findFirst({
+    const ad = await withRetry(() => prisma.privateAd.findFirst({
       where: {
         worker: {
           slug: decodeURIComponent(slug)
@@ -24,6 +24,12 @@ export async function POST(request: NextRequest) {
         id: true,
         title: true,
         description: true,
+        acceptsGender: true,
+        acceptsRace: true,
+        acceptsBodyType: true,
+        acceptsAgeRange: true,
+        daysAvailable: true,
+        extras: true,
         services: {
           include: {
             options: {
@@ -31,12 +37,6 @@ export async function POST(request: NextRequest) {
             },
           }
         },
-        acceptsGender: true,
-        acceptsRace: true,
-        acceptsBodyType: true,
-        acceptsAgeRange: true,
-        daysAvailable: true,
-        extras: true,
         worker: {
           select: {
             name: false,
@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
             suburb: true,
             location: true,
             lastActive: true,
+            vipPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    });
+    }));
 
     if (!ad) {
       return NextResponse.json(
@@ -68,14 +71,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const averageRating = await prisma.review.aggregate({
+    const averageRating = await withRetry(() => prisma.review.aggregate({
       where: {
         revieweeId: ad.worker.id
       },
       _avg: {
         rating: true
       }
-    });
+    }));
 
     // Format pricing from service price range
     let priceText = 'Contact for rates';
@@ -109,6 +112,7 @@ export async function POST(request: NextRequest) {
     // Format the response
     const profile = {
       ad: ad,
+      vip: ad.worker.vipPage?.active || false,
       slug: ad.worker.slug || ad.title || 'Unknown',
       location: ad.worker.suburb || 'Unknown location',
       price: priceText,

@@ -1,4 +1,4 @@
-import { PrismaClient, Gender, BodyType, Race, PrivateAdCustomerCategory, PrivateAdServiceCategory, PrivateAdExtraType, DaysAvailable } from '@prisma/client';
+import { PrismaClient, Gender, BodyType, Race, PrivateAdCustomerCategory, PrivateAdServiceCategory, PrivateAdExtraType, DaysAvailable, VIPContentType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -63,6 +63,60 @@ const reviewComments = [
   null,
 ];
 
+const vipCaptions = [
+  'Feeling grateful today ✨',
+  'Just me being me 💕',
+  'New content alert! 🔥',
+  'Good vibes only 🌟',
+  'Behind the scenes 📸',
+  'Exclusive content for my VIPs',
+  'Throwback to last weekend',
+  'Special post for you all',
+  'Loving this energy lately',
+  'Making memories 💫',
+  'Subscribe for more like this',
+  'Feeling myself today',
+  'Quality time 🌹',
+  'Just dropped something special',
+  'New shoot, who dis? 😘',
+];
+
+const statusUpdates = [
+  'Hey everyone! Just wanted to say thank you for all the love and support. You all make this so worth it! 💕',
+  'New content coming tomorrow! Get ready for something special 🔥',
+  'Taking a short break this weekend to recharge. Back with fresh content next week!',
+  'Thank you to everyone who subscribed this month! You\'re the best! 🌟',
+  'Working on something exciting for you all. Can\'t wait to share it! Stay tuned...',
+  'Reminder: Check your DMs! I\'ve been responding to messages all day 💌',
+  'Feeling so grateful for this amazing community. You all inspire me every day!',
+  'Quick poll: What kind of content would you like to see more of? Let me know in the comments!',
+  'Just finished an amazing photoshoot. The results are 🔥 Posting soon!',
+  'Happy Friday everyone! Hope you all have an amazing weekend 💫',
+  'Taking custom content requests this week! DM me for details ✨',
+  'New subscriber special running this week! Don\'t miss out 🎁',
+  'Behind the scenes day! You\'re getting exclusive access to everything today',
+  'Feeling extra today 💋 New posts coming your way!',
+  'Thank you for 1000 subscribers! Celebration post coming soon! 🎉',
+];
+
+const vipComments = [
+  'Absolutely stunning! 😍',
+  'You look amazing!',
+  'Best content on the platform! 🔥',
+  'Love this! Keep it coming',
+  'Gorgeous as always 💕',
+  'This is why I subscribed!',
+  'Incredible! Thank you for sharing',
+  'You\'re so beautiful!',
+  'Amazing quality content',
+  'Worth every penny! ⭐',
+  'Can\'t wait for more!',
+  'Perfect! 💯',
+  'This made my day!',
+  'Absolutely beautiful work',
+  'You never disappoint!',
+];
+
 function randomAge() {
   return Math.floor(Math.random() * (45 - 21) + 21); // Age between 21-45
 }
@@ -85,7 +139,108 @@ async function main() {
   // Clean existing data
   console.log('🗑️  Cleaning existing data...');
   
+  // Delete VIP content and related data first
+  await prisma.vIPLike.deleteMany({
+    where: {
+      content: {
+        vipPage: {
+          user: {
+            email: {
+              contains: '@escort-seed.com'
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.vIPComment.deleteMany({
+    where: {
+      content: {
+        vipPage: {
+          user: {
+            email: {
+              contains: '@escort-seed.com'
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.vIPContent.deleteMany({
+    where: {
+      vipPage: {
+        user: {
+          email: {
+            contains: '@escort-seed.com'
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.vIPSubscription.deleteMany({
+    where: {
+      vipPage: {
+        user: {
+          email: {
+            contains: '@escort-seed.com'
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.vIPDiscountOffer.deleteMany({
+    where: {
+      vipPage: {
+        user: {
+          email: {
+            contains: '@escort-seed.com'
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.vIPPage.deleteMany({
+    where: {
+      user: {
+        email: {
+          contains: '@escort-seed.com'
+        }
+      }
+    }
+  });
+  
   // Delete in order of dependencies
+  await prisma.serviceOption.deleteMany({
+    where: {
+      service: {
+        privateAd: {
+          worker: {
+            email: {
+              contains: '@escort-seed.com'
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  await prisma.privateAdExtra.deleteMany({
+    where: {
+      privateAd: {
+        worker: {
+          email: {
+            contains: '@escort-seed.com'
+          }
+        }
+      }
+    }
+  });
+  
   await prisma.privateAdService.deleteMany({
     where: {
       privateAd: {
@@ -448,6 +603,230 @@ async function main() {
   }
   
   console.log(`✅ Created ${totalReviews} reviews across ${users.length} escort profiles`);
+  
+  console.log('💎 Creating VIP pages and content...');
+  
+  // Create VIP pages for 60% of escorts (30 out of 50)
+  const vipEscortCount = Math.floor(users.length * 0.6);
+  const vipEscorts = users.slice(0, vipEscortCount);
+  
+  console.log(`   Creating ${vipEscortCount} VIP pages with content...`);
+  
+  let totalVIPContent = 0;
+  let totalVIPSubscriptions = 0;
+  let totalVIPLikes = 0;
+  let totalVIPComments = 0;
+  
+  for (const escortUser of vipEscorts) {
+    const escortIndex = vipEscorts.indexOf(escortUser);
+    console.log(`   [${escortIndex + 1}/${vipEscortCount}] Creating VIP page...`);
+    
+    // Determine if this is a free or paid page (20% free, 80% paid)
+    const isFree = Math.random() < 0.2;
+    
+    // Generate subscription price between $4.99 and $49.99
+    const subscriptionPrice = isFree ? 0 : Math.floor(Math.random() * 4500) + 499; // 499-4999 cents
+    
+    // Get escort details for the VIP page
+    const escortDetails = await prisma.user.findUnique({
+      where: { id: escortUser.id },
+      select: { name: true, bio: true }
+    });
+    
+    // Create VIP page
+    const vipPage = await prisma.vIPPage.create({
+      data: {
+        userId: escortUser.id,
+        title: `${escortDetails?.name}'s Exclusive Content`,
+        description: escortDetails?.bio || 'Welcome to my VIP page! Subscribe for exclusive content, behind-the-scenes access, and special updates just for you.',
+        bannerUrl: `https://picsum.photos/seed/${escortIndex}/1200/400`, // Random banner
+        subscriptionPrice,
+        isFree,
+        active: true,
+      }
+    });
+    
+    // 30% chance of having an active discount
+    if (!isFree && Math.random() < 0.3) {
+      const discountPercent = randomElement([10, 15, 20, 25, 30]);
+      const discountedPrice = Math.floor(subscriptionPrice * (1 - discountPercent / 100));
+      
+      // Discount valid for 7-30 days
+      const validDays = Math.floor(Math.random() * 24) + 7;
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + validDays);
+      
+      await prisma.vIPDiscountOffer.create({
+        data: {
+          vipPageId: vipPage.id,
+          discountPercent,
+          discountedPrice,
+          active: true,
+          validUntil,
+        }
+      });
+    }
+    
+    // Create 15-40 pieces of content for each VIP page
+    const numContent = Math.floor(Math.random() * 26) + 15;
+    console.log(`      Creating ${numContent} content pieces...`);
+    
+    const contentToCreate = [];
+    
+    for (let i = 0; i < numContent; i++) {
+      // Content type distribution: 60% images, 25% videos, 15% status updates
+      let contentType: VIPContentType;
+      const typeRand = Math.random();
+      if (typeRand < 0.60) contentType = VIPContentType.IMAGE;
+      else if (typeRand < 0.85) contentType = VIPContentType.VIDEO;
+      else contentType = VIPContentType.STATUS;
+      
+      // Random date in the past 6 months
+      const daysAgo = Math.floor(Math.random() * 180);
+      const contentDate = new Date();
+      contentDate.setDate(contentDate.getDate() - daysAgo);
+      
+      const contentData: any = {
+        vipPageId: vipPage.id,
+        type: contentType,
+        caption: Math.random() < 0.7 ? randomElement(vipCaptions) : null, // 70% have captions
+        NSFW: Math.random() < 0.3, // 30% marked as NSFW
+        createdAt: contentDate,
+      };
+      
+      // Add type-specific data
+      if (contentType === VIPContentType.IMAGE) {
+        const imageNum = (escortIndex * 100 + i) % 1000;
+        contentData.imageUrl = `https://picsum.photos/seed/${imageNum}/800/800`;
+        contentData.imageWidth = 800;
+        contentData.imageHeight = 800;
+      } else if (contentType === VIPContentType.VIDEO) {
+        const videoNum = (escortIndex * 100 + i) % 1000;
+        contentData.videoUrl = `https://sample-videos.com/video/mp4/720/big_buck_bunny_720p_1mb.mp4`;
+        contentData.thumbnailUrl = `https://picsum.photos/seed/${videoNum}/800/800`;
+        contentData.duration = Math.floor(Math.random() * 600) + 30; // 30s - 10min
+      } else {
+        contentData.statusText = randomElement(statusUpdates);
+      }
+      
+      const content = await prisma.vIPContent.create({
+        data: contentData
+      });
+      
+      totalVIPContent++;
+    }
+    
+    // Now batch create likes and comments for all content
+    console.log(`      Adding likes and comments...`);
+    
+    // Get all content for this VIP page
+    const pageContent = await prisma.vIPContent.findMany({
+      where: { vipPageId: vipPage.id },
+      select: { id: true, createdAt: true }
+    });
+    
+    // Batch create likes
+    const likesToCreate = [];
+    for (const content of pageContent) {
+      const numLikes = Math.floor(Math.random() * 15); // Reduced from 25 to 15
+      const likingClients = clients
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(numLikes, clients.length));
+      
+      for (const client of likingClients) {
+        likesToCreate.push({
+          userId: client.id,
+          contentId: content.id,
+        });
+      }
+    }
+    
+    if (likesToCreate.length > 0) {
+      await prisma.vIPLike.createMany({
+        data: likesToCreate,
+        skipDuplicates: true,
+      });
+      totalVIPLikes += likesToCreate.length;
+    }
+    
+    // Batch create comments
+    const commentsToCreate = [];
+    for (const content of pageContent) {
+      const numComments = Math.floor(Math.random() * 5); // Reduced from 9 to 5
+      const commentingClients = clients
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(numComments, clients.length));
+      
+      for (const client of commentingClients) {
+        const daysAgo = Math.floor((Date.now() - content.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        const commentDaysAfter = Math.floor(Math.random() * Math.min(7, Math.max(1, daysAgo)));
+        const commentDate = new Date(content.createdAt);
+        commentDate.setDate(commentDate.getDate() + commentDaysAfter);
+        
+        commentsToCreate.push({
+          userId: client.id,
+          contentId: content.id,
+          text: randomElement(vipComments),
+          createdAt: commentDate,
+        });
+      }
+    }
+    
+    if (commentsToCreate.length > 0) {
+      await prisma.vIPComment.createMany({
+        data: commentsToCreate,
+        skipDuplicates: true,
+      });
+      totalVIPComments += commentsToCreate.length;
+    }
+    
+    // Create subscriptions (some clients subscribe to VIP pages)
+    console.log(`      Creating subscriptions...`);
+    const numSubscribers = Math.floor(Math.random() * 15) + 5; // 5-20 subscribers per page
+    const subscribers = clients
+      .sort(() => Math.random() - 0.5)
+      .slice(0, Math.min(numSubscribers, clients.length));
+    
+    const subscriptionsToCreate = [];
+    for (const subscriber of subscribers) {
+      const isActive = Math.random() < 0.85; // 85% active subscriptions
+      
+      // Subscription started 1-180 days ago
+      const startedDaysAgo = Math.floor(Math.random() * 180) + 1;
+      const subscriptionDate = new Date();
+      subscriptionDate.setDate(subscriptionDate.getDate() - startedDaysAgo);
+      
+      // Expires in 30 days from start (monthly subscription)
+      const expiresAt = new Date(subscriptionDate);
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      
+      subscriptionsToCreate.push({
+        subscriberId: subscriber.id,
+        vipPageId: vipPage.id,
+        active: isActive,
+        amountPaid: isFree ? 0 : subscriptionPrice,
+        expiresAt: isFree ? null : expiresAt,
+        createdAt: subscriptionDate,
+      });
+    }
+    
+    if (subscriptionsToCreate.length > 0) {
+      await prisma.vIPSubscription.createMany({
+        data: subscriptionsToCreate,
+        skipDuplicates: true,
+      });
+      totalVIPSubscriptions += subscriptionsToCreate.length;
+    }
+    
+    console.log(`      ✓ Completed VIP page ${escortIndex + 1}/${vipEscortCount}`);
+  }
+  
+  console.log(`✅ Created ${vipEscortCount} VIP pages with content`);
+  console.log(`   - Total VIP content pieces: ${totalVIPContent}`);
+  console.log(`   - Total VIP subscriptions: ${totalVIPSubscriptions}`);
+  console.log(`   - Total VIP likes: ${totalVIPLikes}`);
+  console.log(`   - Total VIP comments: ${totalVIPComments}`);
+  
   console.log('🎉 Seed completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   - Total escort profiles: ${created.count}`);
@@ -459,6 +838,13 @@ async function main() {
   console.log(`   - Extras per ad: 1-4 optional add-ons`);
   console.log(`   - Total reviews: ${totalReviews} (0-8 per escort)`);
   console.log(`   - Rating distribution: 60% 5★, 25% 4★, 10% 3★, 5% 1-2★`);
+  console.log(`\n💎 VIP Content Summary:`);
+  console.log(`   - VIP pages created: ${vipEscortCount} (60% of escorts)`);
+  console.log(`   - Content per page: 15-40 pieces`);
+  console.log(`   - Content types: 60% images, 25% videos, 15% status updates`);
+  console.log(`   - Subscriptions per page: 5-20 subscribers`);
+  console.log(`   - Free pages: ~20%, Paid pages: ~80%`);
+  console.log(`   - Active discounts: ~30% of paid pages`);
 }
 
 main()

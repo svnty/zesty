@@ -72,12 +72,17 @@ model User {
   suburb      String? @db.VarChar(100) // Suburb/City name
   bodyType    BodyType?
   race        Race?
-  images      Images[]
   gender      Gender?
 
   privateAds             PrivateAd[]
+  images                 Images[]
   privateOffersSent      PrivateOffer[] @relation("offersSent")
   privateOffersReceived  PrivateOffer[] @relation("offersReceived")
+
+  vipPage             VIPPage?
+  vipSubscriptions    VIPSubscription[] @relation("vipSubscriber")
+  vipLikes            VIPLike[] @relation("vipLikes")
+  vipComments         VIPComment[] @relation("vipComments")
 
   messagesSent ChatMessage[] @relation("sender")
   activeChats  Chat[] @relation("activeChat")
@@ -88,6 +93,144 @@ model User {
 
   lastActive      DateTime? @default(now())
   createdAt       DateTime @default(now())
+}
+
+model VIPPage {
+  id              String @id @default(cuid())
+
+  title           String @db.VarChar(200)
+  description     String @db.VarChar(3000)
+  bannerUrl       String? // Banner image for the VIP page
+  active          Boolean @default(true)
+  
+  // Pricing
+  subscriptionPrice Int @default(999) // Price in cents (e.g., 999 = $9.99)
+  isFree            Boolean @default(false)
+
+  user            User @relation(fields: [userId], references: [id])
+  userId          String
+
+  content         VIPContent[]
+  subscriptions   VIPSubscription[]
+  discountOffers  VIPDiscountOffer[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId])  
+}
+
+enum VIPContentType {
+  IMAGE
+  VIDEO
+  STATUS
+}
+
+model VIPContent {
+  id          String @id @default(cuid())
+  
+  type        VIPContentType
+  caption     String? @db.VarChar(1000)
+  
+  // For images
+  imageUrl    String?
+  imageWidth  Int?
+  imageHeight Int?
+  
+  // For videos
+  videoUrl    String?
+  thumbnailUrl String?
+  duration    Int? // Duration in seconds
+  
+  // For status updates
+  statusText  String? @db.VarChar(5000)
+  
+  NSFW        Boolean @default(false)
+  
+  vipPage     VIPPage @relation(fields: [vipPageId], references: [id], onDelete: Cascade)
+  vipPageId   String
+  
+  likes       VIPLike[]
+  comments    VIPComment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([vipPageId, createdAt])
+}
+
+model VIPSubscription {
+  id          String @id @default(cuid())
+  
+  subscriber  User @relation("vipSubscriber", fields: [subscriberId], references: [id])
+  subscriberId String
+  
+  vipPage     VIPPage @relation(fields: [vipPageId], references: [id], onDelete: Cascade)
+  vipPageId   String
+  
+  active      Boolean @default(true)
+  expiresAt   DateTime? // Null for lifetime/free subscriptions
+  
+  // Payment tracking
+  amountPaid  Int // Amount in cents
+  stripeSubscriptionId String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([subscriberId, vipPageId])
+  @@index([subscriberId])
+  @@index([vipPageId])
+}
+
+model VIPDiscountOffer {
+  id          String @id @default(cuid())
+  
+  vipPage     VIPPage @relation(fields: [vipPageId], references: [id], onDelete: Cascade)
+  vipPageId   String
+  
+  discountPercent Int // 0-100
+  discountedPrice Int // Price in cents after discount
+  
+  active      Boolean @default(true)
+  validFrom   DateTime @default(now())
+  validUntil  DateTime?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([vipPageId, active])
+}
+
+model VIPLike {
+  id          String @id @default(cuid())
+  
+  user        User @relation("vipLikes", fields: [userId], references: [id])
+  userId      String
+  
+  content     VIPContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  contentId   String
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, contentId])
+  @@index([contentId])
+}
+
+model VIPComment {
+  id          String @id @default(cuid())
+  
+  user        User @relation("vipComments", fields: [userId], references: [id])
+  userId      String
+  
+  content     VIPContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  contentId   String
+  
+  text        String @db.VarChar(1000)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([contentId, createdAt])
 }
 
 model Review {

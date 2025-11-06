@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { calculateAge } from '@/lib/calculate-age';
 
 export async function GET() {
   try {
     // Get total count of ACTIVE PrivateAds
-    const totalAds = await prisma.privateAd.count({
+    const totalAds = await withRetry(() => prisma.privateAd.count({
       where: {
         active: true
       }
-    });
+    }));
 
     if (totalAds === 0) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function GET() {
     const randomOffset = Math.floor(Math.random() * totalAds);
 
     // Fetch one random ACTIVE PrivateAd with its worker (user) and images
-    const ad = await prisma.privateAd.findFirst({
+    const ad = await withRetry(() => prisma.privateAd.findFirst({
       skip: randomOffset,
       where: {
         active: true
@@ -58,6 +58,9 @@ export async function GET() {
             suburb: true,
             location: true,
             lastActive: true,
+            vipPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -66,7 +69,7 @@ export async function GET() {
           }
         }
       }
-    });
+    }));
 
     if (!ad || !ad.worker) {
       return NextResponse.json(
@@ -75,14 +78,14 @@ export async function GET() {
       );
     }
 
-    const averageRating = await prisma.review.aggregate({
+    const averageRating = await withRetry(() => prisma.review.aggregate({
       where: {
         revieweeId: ad.worker.id
       },
       _avg: {
         rating: true
       }
-    });
+    }));
 
     // Format pricing from service price range
     let priceText = 'Contact for rates';
@@ -117,6 +120,7 @@ export async function GET() {
     // Format the response
     const profile = {
       ad: ad,
+      vip: ad.worker.vipPage?.active || false,
       slug: ad.worker.slug || ad.title || 'Featured Profile',
       location: ad.worker.suburb || 'Unknown location',
       price: priceText,

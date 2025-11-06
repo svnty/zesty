@@ -10,17 +10,20 @@ import ClientAnalytics from "@/app/[lang]/(client-renders)/analytics";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <main className="pb-16 lg:pb-0">
+      {/* Top */}
       <SessionProvider>
         <DesktopNav />      
       </SessionProvider>
 
       {children}
 
+      {/* Bottom */}
       <Footer />
-      <Cookies />
-
       <MobileNav />
+      
+      {/* Injections */}
       <ClientAnalytics />
+      <Cookies />
     </main>
   );
 }

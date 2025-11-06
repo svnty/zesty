@@ -11,7 +11,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Button } from "@/components/origin_ui_old/button";
-import { Camera, CircleCheck, CircleX, Send, TriangleAlert, Webcam, X } from "lucide-react";
+import { Bookmark, Camera, CircleCheck, CircleX, Send, TriangleAlert, Webcam, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -144,7 +144,7 @@ export default function EscortSlugPage() {
               {defaultImage.NSFW === true && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:opacity-0 transition-opacity duration-300">
                   <div className="bg-black/60 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
-                    <p className="text-sm font-medium">Hover to reveal</p>
+                    <p className="text-sm font-medium">Click to reveal</p>
                   </div>
                 </div>
               )}
@@ -154,7 +154,7 @@ export default function EscortSlugPage() {
 
         {/* Info card or additional content */}
         <div className="lg:col-span-1">
-          <div className="sm:mx-10 lg:m-0 bg-card border rounded-xl p-6 shadow-sm h-full flex flex-col">
+          <div className="sm:mx-10 lg:m-0 bg-card border rounded-xl p-4 shadow-sm h-full flex flex-col">
             <div className="flex flex-row">
               <h2 className="text-xl font-semibold mb-4 w-full">Details</h2>
               <Tooltip delay={100}>
@@ -402,11 +402,12 @@ export default function EscortSlugPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2 mt-4">
+              <Button variant="outline" size="sm" className="w-full opacity-70 hover:opacity-100"><Bookmark />Add to favourites</Button>
               <div className="flex flex-row gap-2">
-                <Link href={`/${lang}/vip/${profile.slug}`} className="flex w-full"><Button variant="outline" size="sm" className="w-full"><Camera />VIP content</Button></Link>
-                <Link href={`/${lang}/live/${profile.slug}`} className="flex w-full"><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>
+                <Link href={`/${lang}/vip/${profile.slug}`} className={`flex w-full ${profile.vip ? 'pointer-events-auto cursor-pointer opacity-70 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Camera />VIP content</Button></Link>
+                <Link href={`/${lang}/live/${profile.slug}`} className="flex w-full opacity-70 hover:opacity-100"><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>
               </div>
-              <Button variant="outline" size="lg" className="w-full"><Send />Contact {slug}</Button>
+              <Button variant="outline" size="lg" className="w-full text-sm h-11 -mb-1"><Send />Contact {decodeURIComponent(slug as string)}</Button>
             </div>
           </div>
         </div>

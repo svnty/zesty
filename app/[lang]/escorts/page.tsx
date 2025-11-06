@@ -64,6 +64,7 @@ export interface EscortProfileData {
   gender: string
   bodyType?: BodyType
   race?: Race
+  vip: boolean
   images: {
     NSFW: boolean; url: string; default: boolean
   }[]
@@ -573,7 +574,7 @@ export default function Page() {
                   {rotatedImages[0].NSFW === true && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:opacity-0 transition-opacity duration-300">
                       <div className="bg-black/60 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
-                        <p className="text-sm font-medium">Hover to reveal</p>
+                        <p className="text-sm font-medium">NSFW</p>
                       </div>
                     </div>
                   )}

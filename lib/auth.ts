@@ -4,7 +4,7 @@ import FacebookProvider from "next-auth/providers/facebook"
 import GoogleProvider from "next-auth/providers/google"
 import AzureADProvider from "next-auth/providers/azure-ad"
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import type { AdapterUser } from "next-auth/adapters";
 
 export const authOptions: NextAuthOptions = {
@@ -48,10 +48,10 @@ export const authOptions: NextAuthOptions = {
 
       try {
         // Find if a user already exists with this email
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
+        const existingUser = await withRetry(() => prisma.user.findUnique({
+          where: { email: user.email || '' },
           include: { accounts: true },
-        });
+        }));
 
         if (existingUser) {
           // Check if this provider is already linked
@@ -61,7 +61,7 @@ export const authOptions: NextAuthOptions = {
 
           if (!isLinked) {
             // 👇 Manually create the provider link
-            await prisma.account.create({
+            await withRetry(() => prisma.account.create({
               data: {
                 userId: existingUser.id,
                 type: account.type,
@@ -73,7 +73,7 @@ export const authOptions: NextAuthOptions = {
                 id_token: account.id_token,
                 expires_at: account.expires_at,
               },
-            });
+            }));
           }
         }
 
