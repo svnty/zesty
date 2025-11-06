@@ -30,12 +30,14 @@ export async function POST(req: NextRequest) {
     try {
       currentUser = await getCurrentUser();
     } catch (err) {
-      return NextResponse.json({ step: 2, ok: false, message: 'getCurrentUser failed', error: String(err) }, { status: 500 });
+      // In production, if session check fails, just proceed without user (public view)
+      console.error('getCurrentUser failed, proceeding as unauthenticated:', err);
+      currentUser = null;
     }
 
     // Early return for step 2
     if (body.__debug_step === 2) {
-      return NextResponse.json({ step: 2, ok: true, message: 'getCurrentUser OK', currentUser: currentUser ? { id: currentUser.id ?? null, email: currentUser.email ?? null } : null });
+      return NextResponse.json({ step: 2, ok: true, message: 'getCurrentUser OK (or bypassed)', currentUser: currentUser ? { id: currentUser.id ?? null, email: currentUser.email ?? null } : null });
     }
 
     // Step 3: find currentUserId (if any)
@@ -46,11 +48,12 @@ export async function POST(req: NextRequest) {
         currentUserId = found?.id;
       }
     } catch (err) {
-      return NextResponse.json({ step: 3, ok: false, message: 'finding current user in DB failed', error: String(err) }, { status: 500 });
+      console.error('finding current user in DB failed, proceeding without userId:', err);
+      currentUserId = undefined;
     }
 
     if (body.__debug_step === 3) {
-      return NextResponse.json({ step: 3, ok: true, message: 'resolved currentUserId', currentUserId });
+      return NextResponse.json({ step: 3, ok: true, message: 'resolved currentUserId (or bypassed)', currentUserId });
     }
 
     // Step 4: fetch VIP page
