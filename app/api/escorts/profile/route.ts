@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
             vipPage: {
               select: { active: true }
             },
+            liveStreamPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -112,6 +115,7 @@ export async function POST(request: NextRequest) {
     // Format the response
     const profile = {
       ad: ad,
+      liveStreamPage: ad.worker.liveStreamPage?.active || false,
       vip: ad.worker.vipPage?.active || false,
       slug: ad.worker.slug || ad.title || 'Unknown',
       location: ad.worker.suburb || 'Unknown location',

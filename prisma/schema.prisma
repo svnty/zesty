@@ -93,6 +93,11 @@ model User {
   eventPosts          EventPost[] @relation("eventPostAuthor")
   eventComments       EventComment[] @relation("eventCommentAuthor")
 
+  studiosOwned        Studio[] @relation("studioOwner")
+  studioAdmins        StudioAdmin[] @relation("studioAdminUser")
+  jobApplications     JobApplication[] @relation("jobApplicant")
+  studioReviews       StudioReview[] @relation("studioReviewer")
+
   messagesSent ChatMessage[] @relation("sender")
   activeChats  Chat[] @relation("activeChat")
   hiddenChats  Chat[] @relation("hiddenChat")
@@ -647,3 +652,194 @@ model EventComment {
   @@index([postId, createdAt])
   @@index([authorId])
 }
+
+// ==================== STUDIOS & JOBS ====================
+
+enum JobType {
+  ACTOR              // Adult film actor/performer
+  DIRECTOR           // Director
+  CAMERA_OPERATOR    // Camera/photography
+  EDITOR             // Video editor
+  PRODUCTION_STAFF   // General production
+  MODEL              // Photo/video model
+  OTHER              // Other roles
+}
+
+enum JobStatus {
+  OPEN               // Currently accepting applications
+  CLOSED             // No longer accepting applications
+  FILLED             // Position has been filled
+  CANCELLED          // Job posting cancelled
+}
+
+enum ApplicationStatus {
+  PENDING            // Application submitted, awaiting review
+  ACCEPTED           // Application accepted
+  REJECTED           // Application rejected
+  WITHDRAWN          // Applicant withdrew
+}
+
+model Studio {
+  id              String @id @default(cuid())
+  
+  name            String @db.VarChar(200)
+  slug            String @unique
+  description     String? @db.Text
+  
+  // Images
+  logo            String?
+  coverImage      String?
+  
+  // Location
+  location        String? @db.VarChar(100)  // Latitude, Longitude
+  suburb          String? @db.VarChar(100)  // Suburb/City name
+  
+  // Contact
+  website         String? @db.VarChar(200)
+  email           String? @db.VarChar(100)
+  
+  // Verification
+  verified        Boolean @default(false)
+  active          Boolean @default(true)
+  
+  // Owner (creator of the studio)
+  owner           User @relation("studioOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId         String
+  
+  // Relations
+  admins          StudioAdmin[]
+  jobs            Job[]
+  reviews         StudioReview[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([active, createdAt])
+  @@index([suburb])
+}
+
+model StudioAdmin {
+  id              String @id @default(cuid())
+  
+  studio          Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  studioId        String
+  
+  user            User @relation("studioAdminUser", fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  
+  // Permissions (can be expanded later)
+  canPostJobs     Boolean @default(true)
+  canManageJobs   Boolean @default(true)
+  canInviteAdmins Boolean @default(false)
+  
+  createdAt       DateTime @default(now())
+
+  @@unique([studioId, userId])
+  @@index([studioId])
+  @@index([userId])
+}
+
+model Job {
+  id              String @id @default(cuid())
+  
+  title           String @db.VarChar(200)
+  slug            String @unique
+  description     String @db.Text
+  
+  // Job type
+  type            JobType
+  
+  // Pay
+  payAmount       Int                    // Amount in cents
+  payType         String @default("FIXED") // FIXED, HOURLY, DAILY, etc.
+  
+  // Duration
+  lengthHours     Int?                   // Duration in hours
+  lengthDays      Int?                   // Or duration in days
+  
+  // Location
+  location        String? @db.VarChar(100)  // Latitude, Longitude
+  suburb          String? @db.VarChar(100)  // Suburb/City name
+  venue           String? @db.VarChar(200)  // Specific location/studio address
+  
+  // Filming dates
+  startDate       DateTime
+  endDate         DateTime?
+  
+  // Requirements
+  requirements    String? @db.Text       // Additional requirements/qualifications
+  
+  // Images
+  coverImage      String?
+  
+  // Status
+  status          JobStatus @default(OPEN)
+  maxApplicants   Int?                   // Maximum number of applicants
+  
+  // Studio
+  studio          Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  studioId        String
+  
+  // Relations
+  applications    JobApplication[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studioId])
+  @@index([slug])
+  @@index([status, startDate])
+  @@index([type, status])
+  @@index([suburb, status])
+}
+
+model JobApplication {
+  id              String @id @default(cuid())
+  
+  // Application details
+  coverLetter     String? @db.Text
+  status          ApplicationStatus @default(PENDING)
+  
+  // Job
+  job             Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId           String
+  
+  // Applicant
+  applicant       User @relation("jobApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId     String
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([jobId, applicantId])
+  @@index([jobId, status])
+  @@index([applicantId])
+}
+
+model StudioReview {
+  id              String @id @default(cuid())
+  
+  // Review content
+  rating          Int @db.SmallInt       // 1-5 stars
+  comment         String? @db.VarChar(1000)
+  
+  // Would work again?
+  wouldWorkAgain  Boolean @default(true)
+  
+  // Studio
+  studio          Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  studioId        String
+  
+  // Reviewer (person who worked for the studio)
+  reviewer        User @relation("studioReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studioId, createdAt])
+  @@index([reviewerId])
+}
+

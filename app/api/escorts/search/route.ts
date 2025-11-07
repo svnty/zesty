@@ -39,6 +39,7 @@ type UserWithDistance = {
   daysAvailable: DaysAvailable[] | null;
   averageRating: number;
   vip: boolean;
+  liveStreamPage: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -138,6 +139,9 @@ export async function POST(request: NextRequest) {
             vipPage: {
               select: { active: true }
             },
+            liveStreamPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -209,6 +213,7 @@ export async function POST(request: NextRequest) {
           race: user.race,
           images: user.images,
           vip: user.vipPage?.active || false,
+          liveStreamPage: user.liveStreamPage?.active || false,
           minPrice,
           maxPrice,
           distance,
@@ -266,6 +271,7 @@ export async function POST(request: NextRequest) {
         slug: user.slug,
         location: user.suburb,
         vip: user.vip,
+        liveStreamPage: user.liveStreamPage,
         distance: isSlugSearch ? 'N/A' : `${user.distance.toFixed(1)}km away`,
         price: user.minPrice && user.maxPrice
           ? (user.minPrice === user.maxPrice

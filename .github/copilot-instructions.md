@@ -1,3 +1,0 @@
-When using the prisma database to fetch user profile information, avoid selecting sensitive fields such as 'name', 'email', and 'image'. Instead, only select non-sensitive fields like 'id', 'slug', 'bio', 'location', and 'suburb' to ensure user privacy is maintained. If you need to reference the user, use their 'id' or 'slug' rather than personal identifiers. If an image is required, consider using the default image in their image array instead of fetching the actual user image (or use a placeholder).
-
-If you're using a prisma query, ensure that you use withRetry() wrapper for database operations to enhance reliability and handle transient errors effectively.

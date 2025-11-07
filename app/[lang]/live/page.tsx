@@ -28,10 +28,11 @@ interface LiveChannel {
   user: {
     id: string;
     slug: string | null;
-    name: string | null;
-    image: string | null;
     suburb: string | null;
     verified: boolean;
+    images: {
+      url: string;
+    }[];
   };
   streams: {
     id: string;
@@ -285,9 +286,9 @@ function ChannelCard({ channel, lang }: { channel: LiveChannel; lang: string }) 
       <div className="group cursor-pointer">
         {/* Thumbnail - 16:9 aspect ratio */}
         <div className="relative aspect-video rounded-lg overflow-hidden bg-muted mb-2">
-          {channel.user.image ? (
+          {channel.user.images[0]?.url ? (
             <img
-              src={channel.user.image}
+              src={channel.user.images[0].url}
               alt={channel.user.slug || 'Channel'}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -322,9 +323,9 @@ function ChannelCard({ channel, lang }: { channel: LiveChannel; lang: string }) 
         <div className="flex gap-2">
           {/* Avatar */}
           <div className="w-10 h-10 rounded-full overflow-hidden bg-muted shrink-0">
-            {channel.user.image ? (
+            {channel.user.images[0]?.url ? (
               <img
-                src={channel.user.image}
+                src={channel.user.images[0].url}
                 alt={channel.user.slug || 'Avatar'}
                 className="w-full h-full object-cover"
               />

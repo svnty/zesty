@@ -16,7 +16,8 @@ import {
   ArrowLeft,
   Loader2,
   Power,
-  PowerOff
+  PowerOff,
+  TriangleAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LiveStreamViewer, LiveStreamBroadcaster } from '../(client-renders)/livekit-components';
@@ -33,12 +34,19 @@ interface LiveStreamChannelData {
   user: {
     id: string;
     slug: string | null;
-    name: string | null;
-    image: string | null;
     bio: string | null;
     suburb: string | null;
     verified: boolean;
     lastActive: Date | null;
+    images: {
+      url: string;
+    }[];
+    vipPage: {
+      active: boolean;
+    } | null;
+    privateAds: {
+      active: boolean;
+    }[];
   };
   currentStream: {
     id: string;
@@ -179,6 +187,12 @@ export default function LiveStreamPage() {
     alert('Donation feature coming soon!');
   };
 
+  const handleReport = () => {
+    // Stub function for reporting
+    console.log('Report feature coming soon');
+    alert('Report feature coming soon!');
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -254,22 +268,33 @@ export default function LiveStreamPage() {
 
               {/* Stream Info Below Video */}
               <div className="space-y-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold mb-2">
-                    {channel.currentStream?.title || channel.title}
-                  </h1>
-                  {channel.description && (
-                    <p className="text-muted-foreground">{channel.description}</p>
-                  )}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                      {channel.currentStream?.title || channel.title}
+                    </h1>
+                    {channel.description && (
+                      <p className="text-muted-foreground">{channel.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleReport}
+                    className="shrink-0"
+                    title="Report channel"
+                  >
+                    <TriangleAlert className="w-4 h-4" />
+                  </Button>
                 </div>
 
                 {/* Streamer Info */}
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <Link href={`/${lang}/vip/${channel.user.slug}`} className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-muted">
-                      {channel.user.image ? (
+                      {channel.user.images[0]?.url ? (
                         <img
-                          src={channel.user.image}
+                          src={channel.user.images[0].url}
                           alt={channel.user.slug || 'Streamer'}
                           className="w-full h-full object-cover"
                         />
@@ -291,7 +316,8 @@ export default function LiveStreamPage() {
                   </Link>
 
                   {!channel.isOwner && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2"
+>
                       <Button onClick={toggleFollow} variant={isFollowing ? "outline" : "default"}>
                         {isFollowing ? 'Unfollow' : 'Follow'}
                       </Button>
@@ -357,9 +383,9 @@ export default function LiveStreamPage() {
               {/* Header */}
               <div className="flex items-start gap-6">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-muted shrink-0">
-                  {channel.user.image ? (
+                  {channel.user.images[0]?.url ? ( 
                     <img
-                      src={channel.user.image}
+                      src={channel.user.images[0].url}
                       alt={channel.user.slug || 'Streamer'}
                       className="w-full h-full object-cover"
                     />
@@ -386,9 +412,19 @@ export default function LiveStreamPage() {
 
                 <div className="flex gap-2">
                   {!channel.isOwner && (
-                    <Button onClick={toggleFollow} variant={isFollowing ? "outline" : "default"} size="lg">
-                      {isFollowing ? 'Unfollow' : 'Follow'}
-                    </Button>
+                    <>
+                      <Button onClick={toggleFollow} variant={isFollowing ? "outline" : "default"} size="lg">
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="lg"
+                        onClick={handleReport}
+                        title="Report channel"
+                      >
+                        <TriangleAlert className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
                   {channel.isOwner && (
                     <Button 
@@ -442,16 +478,27 @@ export default function LiveStreamPage() {
               )}
 
               {/* Links to other profiles */}
-              <div className="border rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4">More from {channel.user.slug}</h2>
-                <div className="flex flex-wrap gap-3">
-                  <Link href={`/${lang}/vip/${channel.user.slug}`}>
-                    <Button variant="outline">
-                      View VIP Page
-                    </Button>
-                  </Link>
+              {(channel.user.vipPage?.active || channel.user.privateAds.length > 0) && (
+                <div className="border rounded-lg p-6">
+                  <h2 className="text-xl font-semibold mb-4">More from {channel.user.slug}</h2>
+                  <div className="flex flex-wrap gap-3">
+                    {channel.user.vipPage?.active && (
+                      <Link href={`/${lang}/vip/${channel.user.slug}`}>
+                        <Button variant="outline">
+                          View VIP Page
+                        </Button>
+                      </Link>
+                    )}
+                    {channel.user.privateAds.length > 0 && (
+                      <Link href={`/${lang}/escorts/${channel.user.slug}`}>
+                        <Button variant="outline">
+                          View Escort Profile
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}

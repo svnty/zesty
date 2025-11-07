@@ -4,20 +4,23 @@ import { calculateDistance } from '@/lib/calculate-distance';
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
+    const {
       slug,
       longitude, 
       latitude,
       page = 1,
-      limit = 8 
+      limit = 8,
+      liveOnly = false,  // Add parameter to filter only live streams
     } = await request.json();
 
-    // Search by username/slug - return the channel
+    let decodedSlug = decodeURIComponent(slug);
+  
+    // Search by username/slug - return the channel (even if not live)
     if (slug) {
       const channel = await withRetry(() => prisma.liveStreamPage.findFirst({
         where: {
           slug: {
-            contains: slug,
+            contains: decodedSlug,
             mode: 'insensitive',
           },
           active: true,  // Only show enabled channels
@@ -27,11 +30,28 @@ export async function POST(request: NextRequest) {
             select: {
               id: true,
               slug: true,
-              name: true,
-              image: true,
               suburb: true,
               location: true,
               verified: true,
+              images: {
+                where: { default: true },
+                select: { url: true },
+                take: 1,
+              },
+              vipPage: {
+                select: {
+                  active: true,
+                },
+              },
+              privateAds: {
+                where: {
+                  active: true,
+                },
+                select: {
+                  active: true,
+                },
+                take: 1,
+              },
             },
           },
           streams: {
@@ -66,26 +86,50 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Search by location - find channels with active streams
+    // Search by location - find channels
     if (longitude !== undefined && latitude !== undefined) {
-      // Fetch all enabled channels with active streams
+      // Build where clause
+      const whereClause: any = {
+        active: true,
+      };
+      
+      // Optionally filter for live streams only
+      if (liveOnly) {
+        whereClause.streams = {
+          some: { isLive: true },
+        };
+      }
+      
+      // Fetch all enabled channels
       const channels = await withRetry(() => prisma.liveStreamPage.findMany({
-        where: {
-          active: true,
-          streams: {
-            some: { isLive: true },
-          },
-        },
+        where: whereClause,
         include: {
           user: {
             select: {
               id: true,
               slug: true,
-              name: true,
-              image: true,
               suburb: true,
               location: true,
               verified: true,
+              images: {
+                where: { default: true },
+                select: { url: true },
+                take: 1,
+              },
+              vipPage: {
+                select: {
+                  active: true,
+                },
+              },
+              privateAds: {
+                where: {
+                  active: true,
+                },
+                select: {
+                  active: true,
+                },
+                take: 1,
+              },
             },
           },
           streams: {
@@ -147,27 +191,51 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Default: return channels with active streams with pagination
+    // Default: return channels with pagination
     const skip = (page - 1) * limit;
+    
+    // Build where clause
+    const whereClause: any = {
+      active: true,
+    };
+    
+    // Optionally filter for live streams only
+    if (liveOnly) {
+      whereClause.streams = {
+        some: { isLive: true },
+      };
+    }
     
     const [channels, total] = await Promise.all([
       withRetry(() => prisma.liveStreamPage.findMany({
-        where: {
-          active: true,
-          streams: {
-            some: { isLive: true },
-          },
-        },
+        where: whereClause,
         include: {
           user: {
             select: {
               id: true,
               slug: true,
-              name: true,
-              image: true,
               suburb: true,
               location: true,
               verified: true,
+              images: {
+                where: { default: true },
+                select: { url: true },
+                take: 1,
+              },
+              vipPage: {
+                select: {
+                  active: true,
+                },
+              },
+              privateAds: {
+                where: {
+                  active: true,
+                },
+                select: {
+                  active: true,
+                },
+                take: 1,
+              },
             },
           },
           streams: {
@@ -192,12 +260,7 @@ export async function POST(request: NextRequest) {
         take: limit,
       })),
       withRetry(() => prisma.liveStreamPage.count({
-        where: {
-          active: true,
-          streams: {
-            some: { isLive: true },
-          },
-        },
+        where: whereClause,
       })),
     ]);
 

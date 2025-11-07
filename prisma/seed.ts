@@ -1,4 +1,4 @@
-import { PrismaClient, Gender, BodyType, Race, PrivateAdCustomerCategory, PrivateAdServiceCategory, PrivateAdExtraType, DaysAvailable, VIPContentType, EventStatus, EventAttendeeStatus } from '@prisma/client';
+import { PrismaClient, Gender, BodyType, Race, PrivateAdCustomerCategory, PrivateAdServiceCategory, PrivateAdExtraType, DaysAvailable, VIPContentType, EventStatus, EventAttendeeStatus, JobType, JobStatus, ApplicationStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -587,29 +587,37 @@ async function main() {
   console.log('🖼️  Adding profile images...');
   
   // Create images for each user (1 default + 2-4 additional images)
+  const imagesToCreate = [];
+  
   for (const user of users) {
     const userIndex = users.indexOf(user);
     const numImages = Math.floor(Math.random() * 3) + 3; // 3-5 images per user
     
     for (let imgIndex = 0; imgIndex < numImages; imgIndex++) {
-      await prisma.images.create({
-        data: {
-          userId: user.id,
-          url: `https://i.pravatar.cc/600?img=${(userIndex * 10 + imgIndex) % 70 + 1}`,
-          NSFW: Math.random() < 0.2, // 20% chance image is NSFW
-          width: 600,
-          height: 600,
-          default: imgIndex === 0, // First image is default, others are not
-        }
+      imagesToCreate.push({
+        userId: user.id,
+        url: `https://i.pravatar.cc/600?img=${(userIndex * 10 + imgIndex) % 70 + 1}`,
+        NSFW: Math.random() < 0.2, // 20% chance image is NSFW
+        width: 600,
+        height: 600,
+        default: imgIndex === 0, // First image is default, others are not
       });
     }
   }
+  
+  await prisma.images.createMany({
+    data: imagesToCreate,
+    skipDuplicates: true,
+  });
   
   console.log(`✅ Added images for ${users.length} profiles`);
   
   console.log('📋 Creating PrivateAds for escort profiles...');
   
-  // Create a PrivateAd for each user (they're all escorts in this seed)
+  // Prepare all private ads data
+  const privateAdsToCreate = [];
+  const adsData = []; // Store metadata for creating services later
+  
   for (const user of users) {
     const userIndex = users.indexOf(user);
     
@@ -632,45 +640,75 @@ async function main() {
         return allDays.indexOf(a) - allDays.indexOf(b);
       });
     
-    // Create the ad
-    const ad = await prisma.privateAd.create({
-      data: {
-        workerId: user.id,
-        title: randomElement([
-          'Exclusive Companion Available',
-          'Professional Escort Services',
-          'Premium Companionship',
-          'Discreet & Sophisticated',
-          'Elite Escort Experience',
-          'Luxury Companion Services',
-          'Professional & Discreet',
-          'Upscale Companion Available',
-        ]),
-        description: randomElement([
-          'Offering professional companionship services for discerning clients. Available for dinner dates, social events, and private engagements.',
-          'Experienced and sophisticated companion available for upscale occasions. I provide a genuine and memorable experience.',
-          'Professional escort offering high-quality companionship. Discreet, reliable, and always punctual.',
-          'Elite companion services for those who appreciate quality and discretion. Let me make your evening special.',
-          'Available for various engagements including dinner dates, events, and private meetings. Professional and discreet.',
-          'Sophisticated companion offering premium services. I cater to clients who value quality and authenticity.',
-          'Professional escort with years of experience. I provide a relaxed and enjoyable experience for all occasions.',
-          'Offering companion services for business and social events. Elegant, intelligent, and always professional.',
-        ]),
-        acceptsGender: [
-          PrivateAdCustomerCategory.MEN,
-          PrivateAdCustomerCategory.WOMEN,
-          ...(Math.random() > 0.5 ? [PrivateAdCustomerCategory.GROUPS] : []),
-        ],
-        acceptsRace: [Race.ASIAN, Race.AFRICAN, Race.HISPANIC, Race.WHITE, Race.DESI, Race.ARABIC],
-        daysAvailable: availableDays,
-        active: Math.random() > 0.2, // 80% active, 20% inactive
-      }
+    privateAdsToCreate.push({
+      workerId: user.id,
+      title: randomElement([
+        'Exclusive Companion Available',
+        'Professional Escort Services',
+        'Premium Companionship',
+        'Discreet & Sophisticated',
+        'Elite Escort Experience',
+        'Luxury Companion Services',
+        'Professional & Discreet',
+        'Upscale Companion Available',
+      ]),
+      description: randomElement([
+        'Offering professional companionship services for discerning clients. Available for dinner dates, social events, and private engagements.',
+        'Experienced and sophisticated companion available for upscale occasions. I provide a genuine and memorable experience.',
+        'Professional escort offering high-quality companionship. Discreet, reliable, and always punctual.',
+        'Elite companion services for those who appreciate quality and discretion. Let me make your evening special.',
+        'Available for various engagements including dinner dates, events, and private meetings. Professional and discreet.',
+        'Sophisticated companion offering premium services. I cater to clients who value quality and authenticity.',
+        'Professional escort with years of experience. I provide a relaxed and enjoyable experience for all occasions.',
+        'Offering companion services for business and social events. Elegant, intelligent, and always professional.',
+      ]),
+      acceptsGender: [
+        PrivateAdCustomerCategory.MEN,
+        PrivateAdCustomerCategory.WOMEN,
+        ...(Math.random() > 0.5 ? [PrivateAdCustomerCategory.GROUPS] : []),
+      ],
+      acceptsRace: [Race.ASIAN, Race.AFRICAN, Race.HISPANIC, Race.WHITE, Race.DESI, Race.ARABIC],
+      daysAvailable: availableDays,
+      active: Math.random() > 0.2, // 80% active, 20% inactive
     });
     
-    // Create 2-4 services for each ad with the new schema
-    const numServices = Math.floor(Math.random() * 3) + 2;
+    // Store metadata for later use
+    adsData.push({
+      userId: user.id,
+      numServices: Math.floor(Math.random() * 3) + 2, // 2-4 services
+      numExtras: Math.floor(Math.random() * 4) + 1, // 1-4 extras
+    });
+  }
+  
+  // Create all private ads in batches
+  for (const adData of privateAdsToCreate) {
+    await prisma.privateAd.create({ data: adData });
+  }
+  
+  // Get all created private ads
+  const privateAds = await prisma.privateAd.findMany({
+    where: {
+      workerId: {
+        in: users.map(u => u.id)
+      }
+    },
+    select: {
+      id: true,
+      workerId: true,
+    }
+  });
+  
+  // Batch create services and extras
+  const servicesToCreate = [];
+  const servicesData = []; // Store for creating options later
+  const extrasToCreate = [];
+  
+  for (const ad of privateAds) {
+    const adMeta = adsData.find(d => d.userId === ad.workerId);
+    if (!adMeta) continue;
     
-    for (let i = 0; i < numServices; i++) {
+    // Create services for this ad
+    for (let i = 0; i < adMeta.numServices; i++) {
       const category = randomElement([
         PrivateAdServiceCategory.IN_CALL,
         PrivateAdServiceCategory.OUT_CALL,
@@ -686,42 +724,20 @@ async function main() {
         [PrivateAdServiceCategory.MEET_AND_GREET]: 'Meet & Greet',
       };
       
-      // Create the service
-      const service = await prisma.privateAdService.create({
-        data: {
-          privateAdId: ad.id,
-          category,
-          label: labels[category],
-        }
+      servicesToCreate.push({
+        privateAdId: ad.id,
+        category,
+        label: labels[category],
       });
       
-      // Create 2-4 service options (different durations/prices)
-      const numOptions = Math.floor(Math.random() * 3) + 2; // 2-4 options
-      const durations = [15, 30, 60, 90, 120]; // minutes
-      
-      for (let j = 0; j < numOptions; j++) {
-        const durationMin = durations[j % durations.length];
-        
-        // Price varies by category and duration
-        let basePrice = 150;
-        if (category === PrivateAdServiceCategory.OUT_CALL) basePrice = 200;
-        else if (category === PrivateAdServiceCategory.MASSAGE) basePrice = 120;
-        else if (category === PrivateAdServiceCategory.MEET_AND_GREET) basePrice = 100;
-        
-        const price = basePrice + Math.floor((durationMin / 30) * 100) + Math.floor(Math.random() * 50);
-        
-        await prisma.serviceOption.create({
-          data: {
-            serviceId: service.id,
-            durationMin,
-            price,
-          }
-        });
-      }
+      servicesData.push({
+        adId: ad.id,
+        category,
+        numOptions: Math.floor(Math.random() * 3) + 2, // 2-4 options
+      });
     }
     
-    // Create some extras (add-ons) for the ad
-    const numExtras = Math.floor(Math.random() * 4) + 1; // 1-4 extras
+    // Create extras for this ad
     const availableExtras = [
       PrivateAdExtraType.FILMING,
       PrivateAdExtraType.BJ,
@@ -739,21 +755,77 @@ async function main() {
     
     const selectedExtras = availableExtras
       .sort(() => Math.random() - 0.5)
-      .slice(0, numExtras);
+      .slice(0, adMeta.numExtras);
     
     for (const extraType of selectedExtras) {
       const extraPrice = Math.floor(Math.random() * 150) + 50; // $50-$200
       
-      await prisma.privateAdExtra.create({
-        data: {
-          privateAdId: ad.id,
-          name: extraType,
-          price: extraPrice,
-          active: Math.random() > 0.2, // 80% active
-        }
+      extrasToCreate.push({
+        privateAdId: ad.id,
+        name: extraType,
+        price: extraPrice,
+        active: Math.random() > 0.2, // 80% active
       });
     }
   }
+  
+  // Batch create all services
+  for (const serviceData of servicesToCreate) {
+    await prisma.privateAdService.create({ data: serviceData });
+  }
+  
+  // Get all created services
+  const services = await prisma.privateAdService.findMany({
+    where: {
+      privateAdId: {
+        in: privateAds.map(ad => ad.id)
+      }
+    },
+    select: {
+      id: true,
+      privateAdId: true,
+      category: true,
+    }
+  });
+  
+  // Batch create service options
+  const serviceOptionsToCreate = [];
+  const durations = [15, 30, 60, 90, 120]; // minutes
+  
+  for (const service of services) {
+    const serviceMeta = servicesData.find(s => s.adId === service.privateAdId && s.category === service.category);
+    if (!serviceMeta) continue;
+    
+    for (let j = 0; j < serviceMeta.numOptions; j++) {
+      const durationMin = durations[j % durations.length];
+      
+      // Price varies by category and duration
+      let basePrice = 150;
+      if (service.category === PrivateAdServiceCategory.OUT_CALL) basePrice = 200;
+      else if (service.category === PrivateAdServiceCategory.MASSAGE) basePrice = 120;
+      else if (service.category === PrivateAdServiceCategory.MEET_AND_GREET) basePrice = 100;
+      
+      const price = basePrice + Math.floor((durationMin / 30) * 100) + Math.floor(Math.random() * 50);
+      
+      serviceOptionsToCreate.push({
+        serviceId: service.id,
+        durationMin,
+        price,
+      });
+    }
+  }
+  
+  // Batch create all service options
+  await prisma.serviceOption.createMany({
+    data: serviceOptionsToCreate,
+    skipDuplicates: true,
+  });
+  
+  // Batch create all extras
+  await prisma.privateAdExtra.createMany({
+    data: extrasToCreate,
+    skipDuplicates: true,
+  });
   
   console.log(`✅ Created PrivateAds with services and extras for ${users.length} profiles`);
   
@@ -794,6 +866,8 @@ async function main() {
   
   // Create reviews for escort profiles
   let totalReviews = 0;
+  const escortReviewsToCreate = [];
+  
   for (const escortUser of users) {
     // Each escort gets 0-8 reviews (some might have none)
     const numReviews = Math.floor(Math.random() * 9);
@@ -817,19 +891,23 @@ async function main() {
       const reviewDate = new Date();
       reviewDate.setDate(reviewDate.getDate() - daysAgo);
       
-      await prisma.review.create({
-        data: {
-          reviewerId: reviewer.id,
-          revieweeId: escortUser.id,
-          rating,
-          comment: rating >= 3 ? comment : (Math.random() > 0.5 ? comment : null), // Lower ratings less likely to have comments
-          createdAt: reviewDate,
-        }
+      escortReviewsToCreate.push({
+        reviewerId: reviewer.id,
+        revieweeId: escortUser.id,
+        rating,
+        comment: rating >= 3 ? comment : (Math.random() > 0.5 ? comment : null), // Lower ratings less likely to have comments
+        createdAt: reviewDate,
       });
       
       totalReviews++;
     }
   }
+  
+  // Batch create all reviews
+  await prisma.review.createMany({
+    data: escortReviewsToCreate,
+    skipDuplicates: true,
+  });
   
   console.log(`✅ Created ${totalReviews} reviews across ${users.length} escort profiles`);
   
@@ -859,14 +937,14 @@ async function main() {
     // Get escort details for the VIP page
     const escortDetails = await prisma.user.findUnique({
       where: { id: escortUser.id },
-      select: { name: true, bio: true }
+      select: { slug: true, bio: true }
     });
     
     // Create VIP page
     const vipPage = await prisma.vIPPage.create({
       data: {
         userId: escortUser.id,
-        title: `${escortDetails?.name}'s Exclusive Content`,
+        title: `${escortDetails?.slug}'s Exclusive Content`,
         description: escortDetails?.bio || 'Welcome to my VIP page! Subscribe for exclusive content, behind-the-scenes access, and special updates just for you.',
         bannerUrl: `https://picsum.photos/seed/${escortIndex}/1200/400`, // Random banner
         subscriptionPrice,
@@ -1058,47 +1136,74 @@ async function main() {
   
   console.log('📺 Creating livestream channels...');
   
-  // Create livestream channels for 40% of escorts (20 out of 50)
+  // Get full user details for livestreamers (40% of escorts)
   const livestreamCount = Math.floor(users.length * 0.4);
-  const livestreamers = users.slice(0, livestreamCount);
+  const livestreamers = await prisma.user.findMany({
+    where: {
+      id: {
+        in: users.slice(0, livestreamCount).map(u => u.id)
+      }
+    },
+    select: {
+      id: true,
+      slug: true,
+      image: true
+    }
+  });
   
   let totalLiveStreamPages = 0;
   let totalFollowers = 0;
+  let totalStreams = 0;
   
-  for (const streamer of livestreamers) {
-    const streamerIndex = livestreamers.indexOf(streamer);
+  // Batch create livestream pages
+  const liveStreamPagesToCreate = livestreamers.map((streamer, index) => {
+    const streamKey = `sk_${streamer.id.substring(0, 8)}_${Date.now()}_${index}`;
+    const slug = streamer.slug || `streamer-${index}`;  // Use user's slug directly
     
-    // Get streamer details
-    const streamerDetails = await prisma.user.findUnique({
-      where: { id: streamer.id },
-      select: { name: true, image: true }
-    });
-    
-    // Generate a unique stream key and slug
-    const streamKey = `sk_${streamer.id.substring(0, 8)}_${Date.now()}`;
-    const slug = `${(streamerDetails?.name || 'streamer').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${streamerIndex}`;
-    
-    // Create livestream page (channel)
-    const liveStreamPage = await prisma.liveStreamPage.create({
-      data: {
-        userId: streamer.id,
-        slug,
-        title: `${streamerDetails?.name}'s Live Stream`,
-        description: randomElement(livestreamBios),
-        streamKey,
-        active: true,
+    return {
+      userId: streamer.id,
+      slug,
+      title: `${streamer.slug}'s Live Stream`,
+      description: randomElement(livestreamBios),
+      streamKey,
+      active: true,
+    };
+  });
+  
+  // Create all livestream pages at once
+  await prisma.liveStreamPage.createMany({
+    data: liveStreamPagesToCreate,
+    skipDuplicates: true,
+  });
+  
+  totalLiveStreamPages = liveStreamPagesToCreate.length;
+  
+  // Get created livestream pages
+  const liveStreamPages = await prisma.liveStreamPage.findMany({
+    where: {
+      userId: {
+        in: livestreamers.map(s => s.id)
       }
-    });
-    
-    totalLiveStreamPages++;
-    
+    },
+    select: {
+      id: true,
+      userId: true
+    }
+  });
+  
+  console.log(`   Creating followers and past streams...`);
+  
+  // Batch create followers and streams
+  const followersToCreate = [];
+  const streamsToCreate = [];
+  
+  for (const liveStreamPage of liveStreamPages) {
     // Add followers (5-25 followers per channel)
     const numFollowers = Math.floor(Math.random() * 21) + 5;
     const followers = clients
       .sort(() => Math.random() - 0.5)
       .slice(0, Math.min(numFollowers, clients.length));
     
-    const followersToCreate = [];
     for (const follower of followers) {
       // Followed 1-180 days ago
       const followedDaysAgo = Math.floor(Math.random() * 180) + 1;
@@ -1110,14 +1215,6 @@ async function main() {
         channelId: liveStreamPage.id,
         createdAt: followDate,
       });
-    }
-    
-    if (followersToCreate.length > 0) {
-      await prisma.liveStreamFollower.createMany({
-        data: followersToCreate,
-        skipDuplicates: true,
-      });
-      totalFollowers += followersToCreate.length;
     }
     
     // Create 2-5 past stream sessions for each channel
@@ -1137,25 +1234,41 @@ async function main() {
       streamEndDate.setMinutes(streamEndDate.getMinutes() + durationMinutes);
       
       // Generate room name for this session
-      const roomName = `room_${liveStreamPage.id.substring(0, 8)}_${streamStartDate.getTime()}`;
+      const roomName = `room_${liveStreamPage.id.substring(0, 8)}_${streamStartDate.getTime()}_${i}`;
       
-      await prisma.liveStream.create({
-        data: {
-          channelId: liveStreamPage.id,
-          title: randomElement(livestreamTitles),
-          roomName,
-          isLive: false, // Past streams are not live
-          viewerCount: Math.floor(Math.random() * 50) + 5, // 5-55 peak viewers
-          startedAt: streamStartDate,
-          endedAt: streamEndDate,
-        }
+      streamsToCreate.push({
+        channelId: liveStreamPage.id,
+        title: randomElement(livestreamTitles),
+        roomName,
+        isLive: false, // Past streams are not live
+        viewerCount: Math.floor(Math.random() * 50) + 5, // 5-55 peak viewers
+        startedAt: streamStartDate,
+        endedAt: streamEndDate,
       });
     }
   }
   
+  // Batch create all followers
+  if (followersToCreate.length > 0) {
+    await prisma.liveStreamFollower.createMany({
+      data: followersToCreate,
+      skipDuplicates: true,
+    });
+    totalFollowers = followersToCreate.length;
+  }
+  
+  // Batch create all streams
+  if (streamsToCreate.length > 0) {
+    await prisma.liveStream.createMany({
+      data: streamsToCreate,
+      skipDuplicates: true,
+    });
+    totalStreams = streamsToCreate.length;
+  }
+  
   console.log(`✅ Created ${totalLiveStreamPages} livestream channels`);
   console.log(`   - Total followers: ${totalFollowers}`);
-  console.log(`   - Past streams per channel: 2-5 sessions`);
+  console.log(`   - Total past streams: ${totalStreams}`);
   
   console.log('🎉 Creating events...');
   
@@ -1356,7 +1469,362 @@ async function main() {
   console.log(`   - Total posts: ${totalEventPosts}`);
   console.log(`   - Total comments: ${totalEventComments}`);
   
-  console.log('🎉 Seed completed successfully!');
+  console.log('� Creating studios and jobs...');
+  
+  // Import JobType, JobStatus, ApplicationStatus from Prisma
+  const { JobType, JobStatus, ApplicationStatus } = await import('@prisma/client');
+  
+  // Create 10 studios
+  const studioNames = [
+    'Paradise Productions',
+    'Elite Studios',
+    'Glamour Productions',
+    'Nightlife Studios',
+    'Premium Content Co',
+    'Luxury Media Group',
+    'Diamond Studios',
+    'Exclusive Productions',
+    'VIP Content Studio',
+    'Premier Media',
+  ];
+  
+  const studioDescriptions = [
+    'Professional adult content production company with over 10 years of experience. We prioritize performer safety and satisfaction.',
+    'Leading studio in the industry, known for high-quality productions and fair treatment of performers. Join our professional team!',
+    'Award-winning production company seeking talented performers for upcoming projects. Competitive rates and professional environment.',
+    'Established studio specializing in premium content creation. We offer a safe, respectful, and professional work environment.',
+    'Top-rated studio with a reputation for excellence. We work with the best talent and provide top-tier compensation.',
+    'Professional media company creating high-quality adult content. We value professionalism, safety, and mutual respect.',
+    'Innovative production studio pushing creative boundaries. Join our team of professional performers and crew.',
+    'Boutique studio focusing on artistic, high-end content. Looking for dedicated performers who take their craft seriously.',
+    'Well-established production company with state-of-the-art facilities. Professional, safe, and respectful workplace.',
+    'Premium content studio known for treating performers with respect and offering competitive compensation packages.',
+  ];
+  
+  const studiosToCreate = [];
+  
+  for (let i = 0; i < studioNames.length; i++) {
+    const location = randomElement(locations);
+    const owner = randomElement(users);
+    
+    studiosToCreate.push({
+      name: studioNames[i],
+      slug: studioNames[i].toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      description: studioDescriptions[i],
+      logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(studioNames[i])}&size=200&background=random`,
+      coverImage: `https://picsum.photos/seed/studio${i}/1200/400`,
+      location: `${location.lat},${location.lon}`,
+      suburb: `${location.city}, ${location.state}`,
+      website: `https://${studioNames[i].toLowerCase().replace(/[^a-z0-9]+/g, '')}.com.au`,
+      email: `contact@${studioNames[i].toLowerCase().replace(/[^a-z0-9]+/g, '')}.com.au`,
+      verified: Math.random() > 0.3, // 70% verified
+      active: true,
+      ownerId: owner.id,
+    });
+  }
+  
+  // Batch create studios
+  await prisma.studio.createMany({
+    data: studiosToCreate,
+    skipDuplicates: true,
+  });
+  
+  const studios = await prisma.studio.findMany({
+    select: { id: true, name: true, suburb: true, location: true }
+  });
+  
+  console.log(`✅ Created ${studios.length} studios`);
+  
+  // Add some studio admins (some studios have additional admins)
+  const studioAdminsToCreate = [];
+  
+  for (const studio of studios) {
+    // 50% chance a studio has 1-3 additional admins
+    if (Math.random() < 0.5) {
+      const numAdmins = Math.floor(Math.random() * 3) + 1;
+      const adminUsers = users
+        .sort(() => Math.random() - 0.5)
+        .slice(0, numAdmins);
+      
+      for (const admin of adminUsers) {
+        studioAdminsToCreate.push({
+          studioId: studio.id,
+          userId: admin.id,
+          canPostJobs: true,
+          canManageJobs: Math.random() > 0.3, // 70% can manage jobs
+          canInviteAdmins: Math.random() > 0.7, // 30% can invite admins
+        });
+      }
+    }
+  }
+  
+  if (studioAdminsToCreate.length > 0) {
+    await prisma.studioAdmin.createMany({
+      data: studioAdminsToCreate,
+      skipDuplicates: true,
+    });
+  }
+  
+  console.log(`   - Added ${studioAdminsToCreate.length} studio admins`);
+  
+  // Create 40 job postings across all studios
+  const jobTitles = {
+    [JobType.ACTOR]: [
+      'Male Performer Needed - Feature Film',
+      'Female Talent for Solo Scenes',
+      'Couples Scene - Professional Performers',
+      'Adult Film Actor - Ongoing Work',
+      'Experienced Performer for Premium Content',
+    ],
+    [JobType.MODEL]: [
+      'Glamour Photo Shoot - Model Needed',
+      'Lingerie Photoshoot',
+      'Fashion Model for Adult Brand',
+      'Photography Model - Multiple Sessions',
+      'Professional Model for Content Creation',
+    ],
+    [JobType.CAMERA_OPERATOR]: [
+      'Camera Operator - Adult Productions',
+      'Videographer for Studio Content',
+      'Professional Camera Operator Needed',
+      'Senior Camera Operator - Feature Films',
+    ],
+    [JobType.DIRECTOR]: [
+      'Content Director - Creative Vision Required',
+      'Assistant Director for Productions',
+      'Experienced Director for Premium Content',
+    ],
+    [JobType.EDITOR]: [
+      'Video Editor - Post Production',
+      'Senior Editor for Adult Content',
+      'Freelance Video Editor Needed',
+    ],
+    [JobType.PRODUCTION_STAFF]: [
+      'Production Assistant Wanted',
+      'Set Designer for Adult Productions',
+      'Lighting Technician Needed',
+      'Makeup Artist for Adult Content',
+    ],
+  };
+  
+  const jobDescriptionTemplates = {
+    [JobType.ACTOR]: 'We are seeking professional performers for an upcoming production. Must be 18+, reliable, and comfortable with adult content. Competitive rates and professional environment.',
+    [JobType.MODEL]: 'Looking for confident models for photo/video content creation. Must be 18+, professional, and experienced with adult modeling. Great rates for the right candidate.',
+    [JobType.CAMERA_OPERATOR]: 'Experienced camera operator needed for professional adult content production. Must have portfolio and references. Excellent pay for skilled professionals.',
+    [JobType.DIRECTOR]: 'Seeking creative director with vision and experience in adult content production. Must have proven track record and professional references.',
+    [JobType.EDITOR]: 'Professional video editor needed for post-production work. Must be experienced with industry-standard software and have adult content editing experience.',
+    [JobType.PRODUCTION_STAFF]: 'Production crew member needed for various roles on set. Must be professional, reliable, and comfortable working in adult content environment.',
+  };
+  
+  const jobsToCreate = [];
+  const totalJobsToCreate = 40;
+  
+  for (let i = 0; i < totalJobsToCreate; i++) {
+    const studio = randomElement(studios);
+    const jobType = randomElement([
+      JobType.ACTOR,
+      JobType.ACTOR,
+      JobType.ACTOR, // More actor jobs
+      JobType.MODEL,
+      JobType.MODEL, // More model jobs
+      JobType.CAMERA_OPERATOR,
+      JobType.DIRECTOR,
+      JobType.EDITOR,
+      JobType.PRODUCTION_STAFF,
+    ]);
+    
+    const titleOptions = jobTitles[jobType];
+    const title = randomElement(titleOptions);
+    
+    // Status distribution: 60% open, 20% closed, 15% filled, 5% cancelled
+    let status: JobStatus;
+    const statusRand = Math.random();
+    if (statusRand < 0.60) status = JobStatus.OPEN;
+    else if (statusRand < 0.80) status = JobStatus.CLOSED;
+    else if (statusRand < 0.95) status = JobStatus.FILLED;
+    else status = JobStatus.CANCELLED;
+    
+    // Job start date: 1-60 days from now for open jobs, past dates for closed/filled
+    const startDate = new Date();
+    if (status === JobStatus.OPEN) {
+      startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 60) + 1);
+    } else {
+      startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 90)); // Past dates
+    }
+    
+    // End date: 1-7 days after start
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + Math.floor(Math.random() * 7) + 1);
+    
+    // Pay varies by job type
+    let basePayAmount = 0;
+    let payType = 'FIXED';
+    
+    if (jobType === JobType.ACTOR || jobType === JobType.MODEL) {
+      basePayAmount = Math.floor(Math.random() * 150000) + 50000; // $500-$2000
+      payType = 'FIXED';
+    } else if (jobType === JobType.CAMERA_OPERATOR || jobType === JobType.DIRECTOR) {
+      basePayAmount = Math.floor(Math.random() * 10000) + 5000; // $50-$150/hour
+      payType = 'HOURLY';
+    } else {
+      basePayAmount = Math.floor(Math.random() * 30000) + 20000; // $200-$500/day
+      payType = 'DAILY';
+    }
+    
+    // Duration
+    const lengthHours = payType === 'HOURLY' ? Math.floor(Math.random() * 8) + 2 : null;
+    const lengthDays = payType === 'DAILY' ? Math.floor(Math.random() * 5) + 1 : null;
+    
+    jobsToCreate.push({
+      title,
+      slug: `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${studio.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${i}`,
+      description: jobDescriptionTemplates[jobType],
+      type: jobType,
+      payAmount: basePayAmount,
+      payType,
+      lengthHours,
+      lengthDays,
+      location: studio.location || null,  // Use studio.location (lat,lon) instead of suburb
+      suburb: studio.suburb,
+      venue: `${studio.name} Studios`,
+      startDate,
+      endDate,
+      requirements: 'Must be 18+, professional, and have valid ID. References preferred.',
+      coverImage: `https://picsum.photos/seed/job${i}/1200/600`,
+      status,
+      maxApplicants: status === JobStatus.OPEN ? Math.floor(Math.random() * 20) + 10 : null,
+      studioId: studio.id,
+    });
+  }
+  
+  // Batch create jobs
+  await prisma.job.createMany({
+    data: jobsToCreate,
+    skipDuplicates: true,
+  });
+  
+  const jobs = await prisma.job.findMany({
+    select: { id: true, status: true }
+  });
+  
+  console.log(`✅ Created ${jobs.length} job postings`);
+  
+  // Create job applications
+  const applicationsToCreate = [];
+  
+  for (const job of jobs) {
+    // Only create applications for non-cancelled jobs
+    if (job.status !== JobStatus.CANCELLED) {
+      // 3-15 applications per job
+      const numApplications = Math.floor(Math.random() * 13) + 3;
+      const applicants = users
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(numApplications, users.length));
+      
+      for (const applicant of applicants) {
+        let appStatus: ApplicationStatus;
+        
+        if (job.status === JobStatus.OPEN) {
+          // Open jobs: mostly pending, some accepted/rejected
+          const rand = Math.random();
+          if (rand < 0.70) appStatus = ApplicationStatus.PENDING;
+          else if (rand < 0.85) appStatus = ApplicationStatus.ACCEPTED;
+          else if (rand < 0.95) appStatus = ApplicationStatus.REJECTED;
+          else appStatus = ApplicationStatus.WITHDRAWN;
+        } else if (job.status === JobStatus.FILLED) {
+          // Filled jobs: one accepted, rest rejected or withdrawn
+          const rand = Math.random();
+          if (rand < 0.10) appStatus = ApplicationStatus.ACCEPTED; // Only 1-2 accepted
+          else if (rand < 0.80) appStatus = ApplicationStatus.REJECTED;
+          else appStatus = ApplicationStatus.WITHDRAWN;
+        } else {
+          // Closed jobs: mix of rejected and withdrawn
+          const rand = Math.random();
+          if (rand < 0.70) appStatus = ApplicationStatus.REJECTED;
+          else appStatus = ApplicationStatus.WITHDRAWN;
+        }
+        
+        const coverLetters = [
+          'I am very interested in this opportunity. I have extensive experience and would love to work with your team.',
+          'I believe I would be a great fit for this role. Please review my profile and let me know if you would like to discuss further.',
+          'Experienced professional seeking new opportunities. I am reliable, professional, and easy to work with.',
+          'I would love to be considered for this position. I have the skills and experience you are looking for.',
+          'Professional and dedicated. I am interested in joining your team and contributing to successful productions.',
+        ];
+        
+        applicationsToCreate.push({
+          jobId: job.id,
+          applicantId: applicant.id,
+          coverLetter: Math.random() > 0.3 ? randomElement(coverLetters) : null, // 70% have cover letters
+          status: appStatus,
+        });
+      }
+    }
+  }
+  
+  if (applicationsToCreate.length > 0) {
+    await prisma.jobApplication.createMany({
+      data: applicationsToCreate,
+      skipDuplicates: true,
+    });
+  }
+  
+  console.log(`   - Created ${applicationsToCreate.length} job applications`);
+  
+  // Create studio reviews
+  const reviewsToCreate = [];
+  
+  for (const studio of studios) {
+    // 3-10 reviews per studio
+    const numReviews = Math.floor(Math.random() * 8) + 3;
+    const reviewers = users
+      .sort(() => Math.random() - 0.5)
+      .slice(0, Math.min(numReviews, users.length));
+    
+    for (const reviewer of reviewers) {
+      // Rating distribution: mostly positive (4-5 stars)
+      let rating: number;
+      const rand = Math.random();
+      if (rand < 0.50) rating = 5;
+      else if (rand < 0.80) rating = 4;
+      else if (rand < 0.92) rating = 3;
+      else if (rand < 0.97) rating = 2;
+      else rating = 1;
+      
+      const positiveComments = [
+        'Professional studio with great facilities. Would definitely work with them again!',
+        'Excellent experience working here. Very professional and respectful team.',
+        'Great studio to work with. Fair pay, professional environment, highly recommended.',
+        'One of the best studios I\'ve worked for. Professional, safe, and respectful.',
+        'Amazing team and facilities. Would work here again without hesitation.',
+      ];
+      
+      const negativeComments = [
+        'Not the best experience. Could improve on communication.',
+        'Average experience. Nothing special but nothing terrible either.',
+        'Had some issues but they were eventually resolved.',
+      ];
+      
+      reviewsToCreate.push({
+        studioId: studio.id,
+        reviewerId: reviewer.id,
+        rating,
+        comment: rating >= 4 ? randomElement(positiveComments) : (rating >= 3 ? randomElement([...positiveComments, ...negativeComments]) : randomElement(negativeComments)),
+        wouldWorkAgain: rating >= 3,
+      });
+    }
+  }
+  
+  if (reviewsToCreate.length > 0) {
+    await prisma.studioReview.createMany({
+      data: reviewsToCreate,
+      skipDuplicates: true,
+    });
+  }
+  
+  console.log(`   - Created ${reviewsToCreate.length} studio reviews`);
+  
+  console.log('�🎉 Seed completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   - Total escort profiles: ${created.count}`);
   console.log(`   - Total client profiles: ${createdClients.count}`);

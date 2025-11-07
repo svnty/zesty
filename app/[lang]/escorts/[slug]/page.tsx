@@ -428,7 +428,7 @@ export default function EscortSlugPage() {
               <Button variant="outline" size="sm" className="w-full opacity-70 hover:opacity-100"><Bookmark />Add to favourites</Button>
               <div className="flex flex-row gap-2">
                 <Link href={`/${lang}/vip/${profile.slug}`} className={`flex w-full ${profile.vip ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Camera />VIP content</Button></Link>
-                <Link href={`/${lang}/live/${profile.slug}`} className="flex w-full opacity-80 hover:opacity-100"><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>
+                <Link href={`/${lang}/live/${profile.slug}`} className={`flex w-full ${profile.liveStreamPage ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>
               </div>
               <Button variant="outline" size="lg" className="w-full text-sm h-11 -mb-1"><Send />Contact {decodeURIComponent(slug as string)}</Button>
             </div>

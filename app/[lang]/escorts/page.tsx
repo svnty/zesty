@@ -23,6 +23,7 @@ interface LocationSuggestion {
 }
 
 export interface EscortProfileData {
+  liveStreamPage: boolean;
   ad: {
     id: string;
     title: string;

@@ -3,10 +3,10 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Heart, 
-  MessageCircle, 
-  MapPin, 
+import {
+  Heart,
+  MessageCircle,
+  MapPin,
   Calendar,
   Lock,
   CheckCircle2,
@@ -21,7 +21,8 @@ import {
   X,
   Camera,
   Webcam,
-  ChevronDown
+  ChevronDown,
+  TriangleAlert
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ import {
   MenuPopup,
   MenuItem,
 } from "@/components/ui/menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface VIPProfileData {
   id: string;
@@ -117,16 +119,16 @@ export default function VIPProfilePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           slug,
           cursor: loadMoreCursor,
           limit: 8,
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
+
         if (isLoadingMore && profile) {
           // Append new content to existing
           setProfile({
@@ -172,6 +174,12 @@ export default function VIPProfilePage() {
     }
   };
 
+  const handleReport = () => {
+    // Stub function for reporting
+    console.log('Report feature coming soon');
+    alert('Report feature coming soon!');
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -188,15 +196,15 @@ export default function VIPProfilePage() {
     );
   }
 
-  const displayPrice = profile.activeDiscount 
-    ? profile.activeDiscount.discountedPrice 
+  const displayPrice = profile.activeDiscount
+    ? profile.activeDiscount.discountedPrice
     : profile.subscriptionPrice;
 
   const canViewContent = profile.hasActiveSubscription || profile.isOwnPage || profile.isFree;
-  
+
   // Check if user is online (active within last hour)
-  const isOnline = profile.user.lastActive 
-    ? (Date.now() - new Date(profile.user.lastActive).getTime()) < 3600000 
+  const isOnline = profile.user.lastActive
+    ? (Date.now() - new Date(profile.user.lastActive).getTime()) < 3600000
     : false;
 
   return (
@@ -236,8 +244,7 @@ export default function VIPProfilePage() {
                 </div>
               )}
             </div>
-            {/* Online Status Indicator */}
-            {true && (
+            {profile.user.lastActive && (Date.now() - new Date(profile.user.lastActive).getTime()) < 3600000 && (
               <div className="absolute bottom-2 right-2 w-8 h-8 bg-background rounded-full flex items-center justify-center">
                 <div className="w-5 h-5 bg-green-500 rounded-full border-2 border-background shadow-lg" />
               </div>
@@ -247,7 +254,18 @@ export default function VIPProfilePage() {
           {/* Profile Info */}
           <div className="flex-1 space-y-2">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+              <Tooltip delay={100}>
+                <TooltipTrigger className="cursor-text" render={<h1 className="text-3xl hidden lg:block xl:hidden md:text-4xl font-bold text-foreground">
+                  {profile.title.slice(0, 30) + '...' || profile.user.slug}
+                </h1>}>
+                </TooltipTrigger>
+                <TooltipContent className={profile.title.length > 30 ? '' : 'hidden'}>
+                  <p className="text-sm text-muted-foreground">
+                    {profile.title || profile.user.slug}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <h1 className="text-3xl lg:hidden xl:block md:text-4xl font-bold text-foreground">
                 {profile.title || profile.user.slug}
               </h1>
               {profile.user.slug && (
@@ -278,7 +296,7 @@ export default function VIPProfilePage() {
 
           {/* Action Buttons */}
           {!profile.isOwnPage && (
-            <div className="w-full md:w-auto flex flex-col gap-2 lg:-mb-11">
+            <div className="w-full md:w-auto flex flex-col gap-2 md:-mb-14 lg:-mb-20">
               {/* Other Pages Dropdown */}
               {(profile.hasActiveEscort || profile.hasActiveLive) && (
                 <Menu>
@@ -320,11 +338,10 @@ export default function VIPProfilePage() {
               )}
 
               {/* Subscription Buttons */}
-              {/* {true ? ( */}
-                {profile.hasActiveSubscription ? (
+              {profile.hasActiveSubscription ? (
                 <>
-                  <Button 
-                    size="lg" 
+                  <Button
+                    size="lg"
                     variant={isHoveringSubscribed ? "destructive" : "outline"}
                     className="w-full md:w-auto relative overflow-hidden transition-colors"
                     onMouseEnter={() => setIsHoveringSubscribed(true)}
@@ -367,6 +384,18 @@ export default function VIPProfilePage() {
                   )}
                 </div>
               )}
+
+              {/* Report Button */}
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={handleReport}
+                className="self-end w-full"
+                title="Report profile"
+              >
+                <TriangleAlert className="w-4 h-4" />
+                Report Profile
+              </Button>
             </div>
           )}
         </div>
@@ -380,10 +409,10 @@ export default function VIPProfilePage() {
       </div>
 
       {/* Content Section */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 lg:mt-2">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Posts</h2>
-          
+
           {/* View Mode Tabs */}
           <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'feed' | 'grid')}>
             <TabsList>
@@ -456,12 +485,12 @@ export default function VIPProfilePage() {
   );
 }
 
-function FeedCard({ 
-  item, 
+function FeedCard({
+  item,
   canViewContent,
   onLike,
   user
-}: { 
+}: {
   item: ContentItem;
   canViewContent: boolean;
   onLike: () => void;
@@ -492,8 +521,8 @@ function FeedCard({
             )} */}
           </div>
           <p className="text-xs text-muted-foreground">
-            {new Date(item.createdAt).toLocaleDateString('en-US', { 
-              month: 'short', 
+            {new Date(item.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
               day: 'numeric',
               year: 'numeric'
             })}
@@ -596,11 +625,11 @@ function FeedCard({
               onClick={onLike}
               className="flex items-center gap-2 text-sm hover:text-red-500 transition-colors"
             >
-              <Heart 
+              <Heart
                 className={cn(
                   "w-5 h-5",
                   item.isLiked && "fill-red-500 text-red-500"
-                )} 
+                )}
               />
               <span className="font-medium">{item.likesCount}</span>
             </button>
@@ -609,7 +638,7 @@ function FeedCard({
               <span className="font-medium">{item.commentsCount}</span>
             </button>
           </div>
-          
+
           {item.caption && item.type === 'STATUS' && (
             <p className="text-sm text-muted-foreground">
               {item.likesCount} {item.likesCount === 1 ? 'like' : 'likes'}
@@ -621,11 +650,11 @@ function FeedCard({
   );
 }
 
-function ContentCard({ 
-  item, 
+function ContentCard({
+  item,
   canViewContent,
-  onLike 
-}: { 
+  onLike
+}: {
   item: ContentItem;
   canViewContent: boolean;
   onLike: () => void;
@@ -633,7 +662,7 @@ function ContentCard({
   const [showDetails, setShowDetails] = useState(false);
 
   return (
-    <div 
+    <div
       className="relative aspect-square bg-muted rounded-lg overflow-hidden group cursor-pointer"
       onMouseEnter={() => setShowDetails(true)}
       onMouseLeave={() => setShowDetails(false)}

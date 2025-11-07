@@ -61,6 +61,9 @@ export async function GET() {
             vipPage: {
               select: { active: true }
             },
+            liveStreamPage: {
+              select: { active: true }
+            },
             images: {
               select: { url: true, default: true, NSFW: true },
               // TODO: select 6 random images but always take 1 default if exists
@@ -120,6 +123,7 @@ export async function GET() {
     // Format the response
     const profile = {
       ad: ad,
+      liveStreamPage: ad.worker.liveStreamPage?.active || false,
       vip: ad.worker.vipPage?.active || false,
       slug: ad.worker.slug || ad.title || 'Featured Profile',
       location: ad.worker.suburb || 'Unknown location',
