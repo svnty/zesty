@@ -22,12 +22,7 @@ export async function POST(req: NextRequest) {
 
     const decodedSlug = decodeURIComponent(slug);
 
-    // Return success for step 1 so we can deploy and verify parsing works on Vercel
-    if (body.__debug_step === 1) {
-      return NextResponse.json({ step: 1, ok: true, message: 'Parsed body OK', slug });
-    }
 
-    // Step 2: get current user
     let currentUser: any = null;
     try {
       currentUser = await getCurrentUser();
@@ -37,12 +32,7 @@ export async function POST(req: NextRequest) {
       currentUser = null;
     }
 
-    // Early return for step 2
-    if (body.__debug_step === 2) {
-      return NextResponse.json({ step: 2, ok: true, message: 'getCurrentUser OK (or bypassed)', currentUser: currentUser ? { id: currentUser.id ?? null, email: currentUser.email ?? null } : null });
-    }
 
-    // Step 3: find currentUserId (if any)
     let currentUserId: string | undefined = undefined;
     try {
       if (currentUser?.email) {
@@ -52,10 +42,6 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error('finding current user in DB failed, proceeding without userId:', err);
       currentUserId = undefined;
-    }
-
-    if (body.__debug_step === 3) {
-      return NextResponse.json({ step: 3, ok: true, message: 'resolved currentUserId (or bypassed)', currentUserId });
     }
 
     // Step 4: fetch VIP page
@@ -105,10 +91,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ step: 4, ok: false, message: 'VIP page not found' }, { status: 404 });
     }
 
-    if (body.__debug_step === 4) {
-      return NextResponse.json({ step: 4, ok: true, message: 'vipPage fetched', vipPage: { id: vipPage.id, userId: vipPage.userId } });
-    }
-
     // Step 5: resolve user image (from images relation)
     let userImage: string | null = null;
     try {
@@ -116,17 +98,6 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       return NextResponse.json({ step: 5, ok: false, message: 'extracting user image failed', error: String(err) }, { status: 500 });
     }
-
-    if (body.__debug_step === 5) {
-      return NextResponse.json({ step: 5, ok: true, message: 'userImage resolved', userImage });
-    }
-
-    // If debug headers requested to stop here, return success summary
-    if (body.__debug_stop_after) {
-      return NextResponse.json({ ok: true, message: 'stopped after image resolution', vipPageId: vipPage.id, userImage });
-    }
-
-    // --- From here on we can progressively enable more steps once above steps succeed in prod ---
 
     // Step 6: check subscription
     let hasActiveSubscription = false;
@@ -141,10 +112,6 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         return NextResponse.json({ step: 6, ok: false, message: 'subscription check failed', error: String(err) }, { status: 500 });
       }
-    }
-
-    if (body.__debug_step === 6) {
-      return NextResponse.json({ step: 6, ok: true, message: 'subscription checked', hasActiveSubscription, isOwnPage });
     }
 
     // Step 7: fetch content
@@ -163,11 +130,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ step: 7, ok: false, message: 'fetching content failed', error: String(err) }, { status: 500 });
     }
 
-    if (body.__debug_step === 7) {
-      return NextResponse.json({ step: 7, ok: true, message: 'content fetched', count: content.length, sample: content.slice(0, 2).map(c => ({ id: c.id, type: c.type })) });
-    }
-
-    // At this point, if no debug flags provided, continue and return the normal response
     // Check if there are more items
     const hasMore = content.length > limit;
     const items = hasMore ? content.slice(0, limit) : content;

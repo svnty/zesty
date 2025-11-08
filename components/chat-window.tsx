@@ -1,0 +1,305 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
+import { supabase } from '@/lib/supabase';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { formatDistanceToNow } from '@/lib/utils';
+import { RiSendPlaneFill } from '@remixicon/react';
+
+interface ChatUser {
+  id: string;
+  slug: string | null;
+  images?: { url: string }[];
+}
+
+interface Message {
+  id: string;
+  content: string;
+  createdAt: Date;
+  senderId: string;
+  sender: ChatUser;
+}
+
+interface ChatData {
+  id: string;
+  otherUser: ChatUser;
+  messages: Message[];
+}
+
+interface ChatWindowProps {
+  chatId: string;
+}
+
+export function ChatWindow({ chatId }: ChatWindowProps) {
+  const { data: session } = useSession();
+  const [chat, setChat] = useState<ChatData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!session?.user || !chatId) return;
+
+    // Fetch initial messages
+    fetchMessages();
+
+    // Mark messages as read when viewing the chat
+    markMessagesAsRead();
+
+    // Subscribe to new messages for this chat
+    const channel = supabase
+      .channel(`chat:${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ChatMessage',
+          filter: `chatId=eq.${chatId}`,
+        },
+        (payload) => {
+          // Add new message to the list
+          const newMsg = payload.new as any;
+          setChat((prevChat) => {
+            if (!prevChat) return prevChat;
+            
+            // Check if message already exists
+            if (prevChat.messages.some(m => m.id === newMsg.id)) {
+              return prevChat;
+            }
+
+            return {
+              ...prevChat,
+              messages: [...prevChat.messages, {
+                id: newMsg.id,
+                content: newMsg.content,
+                createdAt: new Date(newMsg.createdAt),
+                senderId: newMsg.senderId,
+                sender: newMsg.senderId === (session?.user as any)?.id
+                  ? {
+                      id: (session?.user as any)?.id,
+                      slug: (session?.user as any)?.slug || null,
+                      images: [],
+                    }
+                  : prevChat.otherUser,
+              }],
+            };
+          });
+
+          // Scroll to bottom when new message arrives
+          scrollToBottom();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, chatId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [chat?.messages]);
+
+  function scrollToBottom() {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }
+
+  async function fetchMessages() {
+    try {
+      const response = await fetch(`/api/messages/${chatId}`);
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      
+      const data = await response.json();
+      setChat(data);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function markMessagesAsRead() {
+    try {
+      await fetch(`/api/messages/${chatId}/mark-read`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    
+    if (!newMessage.trim() || sending) return;
+
+    setSending(true);
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
+
+    try {
+      const response = await fetch(`/api/messages/${chatId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: messageContent }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send message');
+      
+      // Message will be added via realtime subscription
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setNewMessage(messageContent); // Restore message on error
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!chat) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Chat not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="border-b p-4 flex items-center gap-3">
+        <Avatar className="h-10 w-10">
+          {chat.otherUser.images?.[0]?.url ? (
+            <img
+              src={chat.otherUser.images[0].url}
+              alt="User"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full bg-gray-300 flex items-center justify-center">
+              <span className="font-semibold">
+                {chat.otherUser.slug?.[0]?.toUpperCase() || '?'}
+              </span>
+            </div>
+          )}
+        </Avatar>
+        <h2 className="font-semibold text-lg">{chat.otherUser.slug || 'Unknown User'}</h2>
+      </div>
+
+      {/* Messages */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4">
+        {chat.messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          chat.messages.map((message) => {
+            const isOwn = message.senderId === (session?.user as any)?.id;
+            
+            return (
+              <div
+                key={message.id}
+                className={`flex w-full mt-2 space-x-3 max-w-xs ${
+                  isOwn ? 'ml-auto justify-end' : ''
+                }`}
+              >
+                {!isOwn && (
+                  <div className="shrink-0 h-10 w-10 rounded-full bg-gray-300 overflow-hidden">
+                    {message.sender.images?.[0]?.url ? (
+                      <img
+                        src={message.sender.images[0].url}
+                        alt="User"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-xs font-semibold">
+                          {message.sender.slug?.[0]?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <div
+                    className={`p-3 ${
+                      isOwn
+                        ? 'bg-blue-600 text-white rounded-l-lg rounded-br-lg'
+                        : 'bg-gray-300 rounded-r-lg rounded-bl-lg'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                  </div>
+                  <span className="text-xs text-gray-500 leading-none">
+                    {formatDistanceToNow(new Date(message.createdAt))}
+                  </span>
+                </div>
+
+                {isOwn && (
+                  <div className="shrink-0 h-10 w-10 rounded-full bg-gray-300 overflow-hidden">
+                    {(session?.user as any)?.images?.[0]?.url ? (
+                      <img
+                        src={(session?.user as any).images[0].url}
+                        alt="You"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-xs font-semibold">
+                          {(session?.user as any)?.slug?.[0]?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={sendMessage} className="bg-gray-300 p-4">
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            placeholder="Type your message…"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            disabled={sending}
+            className="flex-1 h-10 rounded px-3 text-sm bg-white border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <Button 
+            type="submit" 
+            disabled={!newMessage.trim() || sending} 
+            size="icon"
+            className="shrink-0 p-5"
+          >
+            {sending ? <Spinner className="h-4 w-4" /> : <RiSendPlaneFill className="h-4 w-4" />}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

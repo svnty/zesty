@@ -93,38 +93,25 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async session({ session, token }: { session: Session; token: JWT }) {
-      if (session.user) {
-        // If we have a user id, fetch subscription details from the database
-        const userId = token.sub as string | undefined;
+      if (session.user && token.sub) {
+        // Add user id to session
+        (session.user as any).id = token.sub;
         
-        // if (userId) {
-        //   const dbUser = await withRetry(() => prisma.user.findUnique({
-        //     where: { email: session.user?.email || undefined },
-        //     select: {
-        //       currentEditableBiasId: true,
-        //       subscriptionTier: true,
-        //       subscriptionStartedAt: true,
-        //       subscriptionExpiresAt: true,
-        //       stripeCustomerId: true,
-        //       moderatedBias: { select: { id: true } },
-        //       role: true,
-        //     },
-        //   }));
+        // Fetch additional user details if needed
+        const dbUser = await withRetry(() => prisma.user.findUnique({
+          where: { id: token.sub as string },
+          select: {
+            role: true,
+            slug: true,
+            dob: true,
+          },
+        }));
 
-          // if (dbUser) {
-          //   session.user.subscription = {
-          //     tier: dbUser.subscriptionTier,
-          //     startedAt: dbUser.subscriptionStartedAt ? dbUser.subscriptionStartedAt.toISOString() : null,
-          //     expiresAt: dbUser.subscriptionExpiresAt ? dbUser.subscriptionExpiresAt.toISOString() : null,
-          //     stripeCustomerId: dbUser.stripeCustomerId ?? null,
-          //   } as any;
-          //   session.user.currentEditableBiasId = dbUser.currentEditableBiasId;
-          //   session.user.moderatedBias = {
-          //     id: dbUser.moderatedBias?.id,
-          //   };
-          //   session.user.role = dbUser.role;
-          // }
-        // }
+        if (dbUser) {
+          session.user.role = dbUser.role;
+          session.user.slug = dbUser.slug ?? undefined;
+          session.user.dob = dbUser.dob ?? undefined;
+        }
       }
 
       return session;

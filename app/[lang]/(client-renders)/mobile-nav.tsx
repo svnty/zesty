@@ -1,14 +1,17 @@
 "use client";
 
-import { Calendar, Camera, Clapperboard, Flame, Search, TvMinimalPlay } from "lucide-react";
+import { Calendar, Camera, Clapperboard, Flame, Mail, Search, TvMinimalPlay } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
+import { UnreadMessagesBadge } from "@/components/unread-messages-badge";
+import { useSession } from "next-auth/react";
 
 export default function MobileNav() {
   const { lang } = useParams();
   const pathname = usePathname();
   const [clickedPath, setClickedPath] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   const handleClick = (path: string) => {
     setClickedPath(path);

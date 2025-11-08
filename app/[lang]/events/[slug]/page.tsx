@@ -38,8 +38,8 @@ interface EventData {
   organizer: {
     id: string;
     slug: string | null;
-    name: string | null;
-    image: string | null;
+    title: string | null;
+    images?: { url: string }[];
     verified: boolean;
   };
   attendees: {
@@ -48,8 +48,8 @@ interface EventData {
     user: {
       id: string;
       slug: string | null;
-      name: string | null;
-      image: string | null;
+      title: string | null;
+      images?: { url: string }[];
     };
   }[];
   posts?: EventPost[];
@@ -64,8 +64,8 @@ interface EventPost {
   author: {
     id: string;
     slug: string | null;
-    name: string | null;
-    image: string | null;
+    title: string | null;
+    images?: { url: string }[];
   };
   comments: EventComment[];
 }
@@ -77,8 +77,8 @@ interface EventComment {
   author: {
     id: string;
     slug: string | null;
-    name: string | null;
-    image: string | null;
+    title: string | null;
+    images?: { url: string }[];
   };
 }
 
@@ -324,8 +324,8 @@ export default function EventPage() {
 
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-muted shrink-0">
-                      {event.organizer.image ? (
-                        <img src={event.organizer.image} alt={event.organizer.slug || 'Organizer'} className="w-full h-full object-cover" />
+                      {event.organizer.images?.[0]?.url ? (
+                        <img src={event.organizer.images[0].url} alt={event.organizer.slug || 'Organizer'} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center font-bold">
                           {event.organizer.slug?.[0]?.toUpperCase()}
@@ -481,8 +481,8 @@ export default function EventPage() {
                     <div className="flex items-start gap-3 mb-3">
                       <Link href={`/${lang}/vip/${post.author.slug}`}>
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
-                          {post.author.image ? (
-                            <img src={post.author.image} alt={post.author.slug || 'User'} className="w-full h-full object-cover" />
+                          {post.author.images?.[0]?.url ? (
+                            <img src={post.author.images[0].url} alt={post.author.slug || 'User'} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center font-bold">
                               {post.author.slug?.[0]?.toUpperCase()}
@@ -515,8 +515,8 @@ export default function EventPage() {
                           <div key={comment.id} className="flex items-start gap-2">
                             <Link href={`/${lang}/vip/${comment.author.slug}`}>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-muted shrink-0">
-                                {comment.author.image ? (
-                                  <img src={comment.author.image} alt={comment.author.slug || 'User'} className="w-full h-full object-cover" />
+                                {comment.author.images?.[0]?.url ? (
+                                  <img src={comment.author.images[0].url} alt={comment.author.slug || 'User'} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-xs font-bold">
                                     {comment.author.slug?.[0]?.toUpperCase()}
@@ -657,8 +657,8 @@ export default function EventPage() {
                       className="flex items-center gap-2 p-2 rounded hover:bg-muted transition-colors"
                     >
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-muted shrink-0">
-                        {attendee.user.image ? (
-                          <img src={attendee.user.image} alt={attendee.user.slug || 'User'} className="w-full h-full object-cover" />
+                        {attendee.user.images?.[0]?.url ? (
+                          <img src={attendee.user.images[0].url} alt={attendee.user.slug || 'User'} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs font-bold">
                             {attendee.user.slug?.[0]?.toUpperCase()}
@@ -681,8 +681,8 @@ export default function EventPage() {
               <h3 className="font-semibold mb-3">Organized by</h3>
               <Link href={`/${lang}/vip/${event.organizer.slug}`} className="flex items-center gap-3 hover:bg-muted p-2 rounded transition-colors">
                 <div className="w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0">
-                  {event.organizer.image ? (
-                    <img src={event.organizer.image} alt={event.organizer.slug || 'Organizer'} className="w-full h-full object-cover" />
+                  {event.organizer.images?.[0]?.url ? (
+                    <img src={event.organizer.images[0].url} alt={event.organizer.slug || 'Organizer'} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center font-bold">
                       {event.organizer.slug?.[0]?.toUpperCase()}

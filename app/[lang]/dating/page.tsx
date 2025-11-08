@@ -490,7 +490,7 @@ export default function Page() {
                         <div>
                           <h4 className="font-bold text-base mb-1">No Commercial Services</h4>
                           <p className="text-sm text-muted-foreground">
-                            Advertising paid services, escort services, or any commercial activities is strictly prohibited and will result in immediate account termination.
+                            Advertising paid services, escort services, or any commercial activities is strictly prohibited and will result in immediate termination.
                           </p>
                         </div>
                       </div>

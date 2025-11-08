@@ -50,7 +50,7 @@ interface VIPProfileData {
     id: string;
     name: string | null;
     slug: string | null;
-    image: string | null;
+    image: string | null; // Note: This comes from the API, derived from user.images relation
     bio: string | null;
     suburb: string | null;
     verified: boolean;

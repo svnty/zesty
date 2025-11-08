@@ -13,6 +13,7 @@ import {
 } from "@remixicon/react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { UnreadMessagesBadge } from "@/components/unread-messages-badge";
 
 export default function DesktopNav() {
   const { data: session, status } = useSession();
@@ -26,7 +27,7 @@ export default function DesktopNav() {
           <span className="ml-5 text-xl font-semibold">zesty</span>
         </div>
       </Link>
-      <div className="bg-muted flex items-center gap-4 rounded-md px-5 py-2.5 max-lg:hidden">
+      <div className="bg-muted flex items-center gap-4 rounded-md px-5 py-2.5 max-lg:hidden xl:min-h-14 transition-all duration-500">
         <div className="flex-1 max-xl:hidden"></div>
         <div className="text-muted-foreground flex items-center gap-10 font-medium">
           <Link href={`/${lang}/escorts`} className="hover:text-foreground">Directory</Link>
@@ -37,40 +38,53 @@ export default function DesktopNav() {
           <Link href={`/${lang}/dating`} className="hover:text-foreground">Meet</Link>
         </div>
 
-        {status === "authenticated" && (
-          <section className="flex flex-row align-middle gap-6">
 
-            {/* <div className="flex-1 max-xl:hidden"></div> */}
-            <div className="flex mx-2 my-auto h-6 w-px bg-border max-xl:hidden"></div>
-            {/* <div className="flex-2 max-xl:hidden"></div> */}
-
-            <div className="flex gap-4 max-xl:hidden">
-              <a href="#" data-slot="button" className="focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 hover:bg-accent-foreground/5 hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border size-9 bg-transparent shadow-none">
+        {/* Animated authenticated row: collapse horizontally when unauthenticated to avoid empty gap */}
+        <section
+          aria-hidden={status !== "authenticated"}
+          className={`overflow-hidden transition-[max-width,opacity,transform] duration-500 ease-out transform will-change-[max-width,opacity,transform] max-xl:hidden flex items-center ${
+            status === "authenticated"
+              ? "max-w-56 opacity-100 scale-100"
+              : "max-w-0 opacity-0 scale-95"
+          }`}
+        >
+          {/* inner content keeps layout but will be clipped when collapsed */}
+          <div className="flex flex-row align-middle gap-6 py-0.5">
+            <div className="flex mx-2 my-auto h-6 w-px bg-border"></div>
+            <div className="flex gap-4">
+              <Link href={`/${lang}/messages`} className="relative focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 hover:bg-accent-foreground/5 hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border size-9 bg-transparent shadow-none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail" aria-hidden="true">
                   <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"></path>
                   <rect x="2" y="4" width="20" height="16" rx="2"></rect>
                 </svg>
-              </a>
+                <UnreadMessagesBadge className="absolute -top-1 -right-1" />
+              </Link>
             </div>
-
-
-          </section>
-        )}
+          </div>
+        </section>
         <div className="flex-1 max-xl:hidden"></div>
 
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
-        {status === "authenticated" && (
-          <section>
-            <a href="#" data-slot="button" className="focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs size-9 xl:hidden">
+
+        {/* Animated small-screen authenticated icon (collapses on larger screens via xl:hidden) */}
+        <section
+          aria-hidden={status !== "authenticated"}
+          className={`xl:hidden overflow-hidden transition-[max-width,opacity,transform] duration-400 ease-out transform will-change-[max-width,opacity,transform] ${
+            status === "authenticated" ? "max-w-12 opacity-100 scale-100" : "max-w-0 opacity-0 scale-95"
+          }`}
+        >
+          <div className="py-0.5">
+            <Link href={`/${lang}/messages`} className="relative focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs size-9">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail" aria-hidden="true">
                 <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"></path>
                 <rect x="2" y="4" width="20" height="16" rx="2"></rect>
               </svg>
-            </a>
-          </section>
-        )}
+              <UnreadMessagesBadge className="absolute -top-1 -right-1" />
+            </Link>
+          </div>
+        </section>
 
         <Dialog>
           <DialogTrigger>

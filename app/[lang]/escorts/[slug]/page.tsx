@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { EscortProfileData } from "../page";
 import { cn } from "@/lib/utils";
 import { RiStarFill } from "@remixicon/react";
+import { StartChatButton } from "@/components/start-chat-button";
 
 export default function EscortSlugPage() {
   const { lang, slug } = useParams();
@@ -444,7 +445,7 @@ export default function EscortSlugPage() {
                 <Link href={`/${lang}/vip/${profile.slug}`} className={`flex w-full ${profile.vip ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Camera />VIP content</Button></Link>
                 <Link href={`/${lang}/live/${profile.slug}`} className={`flex w-full ${profile.liveStreamPage ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>
               </div>
-              <Button variant="outline" size="lg" className="w-full text-sm h-11 -mb-1"><Send />Contact {decodeURIComponent(slug as string)}</Button>
+              <StartChatButton otherUserSlug={profile.slug} lang={lang as string} size="lg" />
             </div>
           </div>
         </div>

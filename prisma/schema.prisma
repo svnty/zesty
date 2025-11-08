@@ -100,6 +100,7 @@ model User {
   studioReviews       StudioReview[] @relation("studioReviewer")
 
   messagesSent ChatMessage[] @relation("sender")
+  messagesRead MessageRead[] @relation("messageReads")
   activeChats  Chat[] @relation("activeChat")
   hiddenChats  Chat[] @relation("hiddenChat")
 
@@ -451,6 +452,24 @@ model ChatMessage {
 
   chat Chat @relation(fields: [chatId], references: [id])
   chatId String
+
+  readBy    MessageRead[]
+}
+
+model MessageRead {
+  id        String @id @default(cuid())
+
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String
+
+  user      User @relation("messageReads", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
 }
 
 model DatingPage {
