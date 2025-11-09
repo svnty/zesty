@@ -71,7 +71,7 @@ export default function SettingsPage() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">Profile Settings</h3>
                   <p className="text-sm text-muted-foreground">
-                    Update your name, bio, location, and profile information
+                    Update your name, bio, photos, location, and profile information
                   </p>
                 </div>
                 <span className="text-xs text-muted-foreground">Coming Soon</span>
@@ -117,21 +117,6 @@ export default function SettingsPage() {
                   <h3 className="font-semibold text-lg">Privacy & Security</h3>
                   <p className="text-sm text-muted-foreground">
                     Control your privacy settings and account security
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">Coming Soon</span>
-              </div>
-            </Card>
-
-            <Card className="p-6 opacity-50">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                  <CreditCard className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">Billing & Payments</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Manage payment methods and subscription details
                   </p>
                 </div>
                 <span className="text-xs text-muted-foreground">Coming Soon</span>

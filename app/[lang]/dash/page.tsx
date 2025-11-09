@@ -21,14 +21,14 @@ import { Spinner } from "@/components/ui/spinner";
 
 const dashboardOptions = [
   {
-    title: "Post a Private Ad",
+    title: "Private Ad",
     description: "Create, edit, or manage your escort profile and advertisements",
     icon: Coffee,
     href: "/dash/escorts",
     color: "from-rose-500 to-pink-500",
   },
   {
-    title: "Join a Studio or Post a Job",
+    title: "Studios and Jobs",
     description: "Manage studio applications, job postings, and recruitment",
     icon: Briefcase,
     href: "/dash/jobs",
@@ -42,14 +42,14 @@ const dashboardOptions = [
     color: "from-purple-500 to-indigo-500",
   },
   {
-    title: "Start a Fans Only Page",
-    description: "Create and manage your VIP content subscription page",
+    title: "VIP Content",
+    description: "Create and manage your content subscription page",
     icon: Camera,
     href: "/dash/vip",
     color: "from-orange-500 to-amber-500",
   },
   {
-    title: "Make an Event",
+    title: "Manage Events",
     description: "Create and organize events for your community",
     icon: Calendar,
     href: "/dash/events",
@@ -92,15 +92,15 @@ export default function DashboardPage() {
                 Welcome! Choose an option below to get started
               </p>
             </div>
-            <div className="flex gap-3">
-              <Link href={`/${lang}/dash/billing`}>
-                <Button variant="outline" size="lg">
+            <div className="flex flex-col md:flex-row gap-3">
+              <Link href={`/${lang}/dash/billing`} className="w-full">
+                <Button variant="outline" size="lg" className="w-full">
                   <CreditCard className="w-4 h-4 mr-2" />
                   Billing
                 </Button>
               </Link>
-              <Link href={`/${lang}/dash/settings`}>
-                <Button variant="outline" size="lg">
+              <Link href={`/${lang}/dash/settings`} className="w-full">
+                <Button variant="outline" size="lg" className="w-full">
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </Button>

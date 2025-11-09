@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import UnifiedSearch from "@/components/unified-search";
 import type { FilterData } from '@/app/[lang]/escorts/(client-renders)/filter';
-import { 
-  Radio, 
-  Users, 
+import {
+  Radio,
+  Users,
   MapPin,
   Clock,
   ArrowRight,
@@ -135,10 +135,10 @@ export default function Page() {
 
   const loadMoreChannels = async () => {
     if (isLoadingMore || !hasMore) return;
-    
+
     setIsLoadingMore(true);
     const nextPage = currentPage + 1;
-    
+
     try {
       const response = await fetch('/api/live/search', {
         method: 'POST',
@@ -189,7 +189,7 @@ export default function Page() {
 
   const handleLocationSearch = async (location: any, filters: FilterData) => {
     if (!location?.coordinates) return;
-    
+
     setIsSearching(true);
     setHasSearched(true);
     setSearchPage(1);
@@ -200,12 +200,12 @@ export default function Page() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           longitude: location.coordinates[0],
           latitude: location.coordinates[1],
           filters,
-          page: 1, 
-          limit: 20 
+          page: 1,
+          limit: 20
         }),
       });
 
@@ -235,12 +235,12 @@ export default function Page() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             longitude: lastSearchParams.location.coordinates[0],
             latitude: lastSearchParams.location.coordinates[1],
             filters: lastSearchParams.filters,
-            page: nextPage, 
-            limit: 20 
+            page: nextPage,
+            limit: 20
           }),
         });
       } else if (lastSearchParams.type === 'username' && lastSearchParams.username) {
@@ -249,11 +249,11 @@ export default function Page() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
-            slug: lastSearchParams.username, 
+          body: JSON.stringify({
+            slug: lastSearchParams.username,
             filters: lastSearchParams.filters,
-            page: nextPage, 
-            limit: 20 
+            page: nextPage,
+            limit: 20
           }),
         });
       }
@@ -306,7 +306,7 @@ export default function Page() {
                 </Badge>
               )}
             </div>
-            
+
             {/* Search Bar */}
             <div className="flex-1 w-full">
               <UnifiedSearch
@@ -335,7 +335,7 @@ export default function Page() {
             </div>
             <h2 className="text-2xl font-bold mb-2">No Live Channels</h2>
             <p className="text-muted-foreground text-center max-w-md mb-6">
-              {hasSearched 
+              {hasSearched
                 ? 'No channels match your search. Try different criteria.'
                 : 'No one is streaming right now. Check back soon!'}
             </p>
@@ -344,7 +344,7 @@ export default function Page() {
                 Clear Search
               </Button>
             )}
-            
+
             {/* CTA for creating stream */}
             {!hasSearched && (
               <div className="mt-8 p-6 border rounded-xl bg-card max-w-md text-center">
@@ -353,10 +353,12 @@ export default function Page() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Start your own channel and build your audience
                 </p>
-                <Button className="w-full">
-                  Start Streaming
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
+                <Link href={`/${lang}/dash/live`} className="shrink-0">
+                  <Button className="w-full">
+                    Start Streaming
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
               </div>
             )}
           </div>
@@ -406,7 +408,7 @@ export default function Page() {
                   )}
                 </div>
                 {!isLoadingMore && (
-                  <Button 
+                  <Button
                     onClick={loadMoreChannels}
                     variant="outline"
                     size="lg"
@@ -442,10 +444,12 @@ export default function Page() {
                       Start your own channel and connect with your audience in real-time
                     </p>
                   </div>
-                  <Button size="lg" className="shrink-0">
-                    Start Streaming
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                  <Link href={`/${lang}/dash/live`} className="shrink-0">
+                    <Button size="lg" className="w-full">
+                      Start Streaming
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             )}
@@ -524,7 +528,7 @@ function ChannelCard({ channel, lang }: { channel: LiveChannel; lang: string }) 
             <p className="text-xs text-muted-foreground">
               {channel.user.slug}
             </p>
-            
+
             {/* Location or category info */}
             <div className="flex items-center gap-2 mt-1">
               {channel.user.suburb && (

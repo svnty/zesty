@@ -4,7 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import ThemeToggle from "./theme";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/origin_ui_old/button";
-import { ScanFace } from "lucide-react";
+import { BookMarked, BookOpen, ScanFace } from "lucide-react";
 import {
   RiFacebookFill,
   RiGoogleFill,
@@ -24,7 +24,7 @@ export default function DesktopNav() {
       <Link href={`/${lang}`} className="flex items-center space-x-2">
         <div className="flex items-center">
           🌶️
-          <span className="ml-5 text-xl font-semibold">zesty</span>
+          <span className="ml-5 text-xl font-semibold hidden sm:block">zesty</span>
         </div>
       </Link>
       <div className="bg-muted flex items-center gap-4 rounded-md px-5 py-2.5 max-lg:hidden xl:min-h-14 transition-all duration-500">
@@ -43,8 +43,8 @@ export default function DesktopNav() {
         <section
           aria-hidden={status !== "authenticated"}
           className={`overflow-hidden transition-[max-width,opacity,transform] duration-500 ease-out transform will-change-[max-width,opacity,transform] max-xl:hidden flex items-center ${status === "authenticated"
-              ? "max-w-56 opacity-100 scale-100"
-              : "max-w-0 opacity-0 scale-95"
+            ? "max-w-56 opacity-100 scale-100"
+            : "max-w-0 opacity-0 scale-95"
             }`}
         >
           {/* inner content keeps layout but will be clipped when collapsed */}
@@ -62,11 +62,9 @@ export default function DesktopNav() {
           </div>
         </section>
         <div className="flex-1 max-xl:hidden"></div>
-
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
-
         {/* Animated small-screen authenticated icon (collapses on larger screens via xl:hidden) */}
         <section
           aria-hidden={status !== "authenticated"}
@@ -84,6 +82,11 @@ export default function DesktopNav() {
           </div>
         </section>
 
+        {status === "authenticated" && (
+          <Link href={`/${lang}/favourites`} className="relative focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs size-9">
+            <BookMarked />
+          </Link>
+        )}
         {/* Get Started Button - redirect to dashboard if logged in, or show dialog */}
         {status === "authenticated" ? (
           <Link href={`/${lang}/dash`}>
