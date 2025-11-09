@@ -46,7 +46,7 @@ export default function JobsManagementPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
             <Link href={`/${lang}/dash`}>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="lg">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
@@ -77,12 +77,11 @@ export default function JobsManagementPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold">Your Studios</h2>
               <Menu>
-                <MenuTrigger>
-                  <Button>
+                <MenuTrigger render={<Button>
                     <Building className="w-4 h-4 mr-2" />
                     Studio Options
                     <ChevronDown className="w-4 h-4 ml-2" />
-                  </Button>
+                  </Button>}>
                 </MenuTrigger>
                 <MenuPopup>
                   <Link href={`/${lang}/jobs/create-studio`}>

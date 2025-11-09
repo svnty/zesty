@@ -135,7 +135,7 @@ export default function BillingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href={`/${lang}/dash`}>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="lg">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
