@@ -1,16 +1,17 @@
 "use client";
 
-import { Session, SupabaseClient } from '@supabase/supabase-js';
+import { Session, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { createBrowserClient } from "@supabase/ssr";
 import { User as ZestyUser } from '@prisma/client';
 import { createElement, createContext, useContext, useState, useEffect } from 'react';
 
 type Status = 'loading' | 'authenticated' | 'unauthenticated';
+type UserData = ZestyUser & SupabaseUser;
 
 interface SupabaseContextType {
   session: Session | null;
   status: Status;
-  user: ZestyUser | null;
+  user: UserData | null;
   supabase: SupabaseClient;
 }
 
@@ -26,7 +27,7 @@ export const anonSupabase = supabase;
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<Status>('loading');
-  const [user, setUser] = useState<ZestyUser | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     // Single getSession call for entire app
@@ -41,7 +42,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           .eq('supabaseId', session.user.id)
           .single()
           .then(({ data }) => {
-            if (data) setUser(data as ZestyUser);
+            if (data) setUser({...data as ZestyUser, ...session.user});
           });
       }
     });
@@ -68,7 +69,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           .eq('supabaseId', session.user.id)
           .single()
           .then(({ data }) => {
-            if (data) setUser(data as ZestyUser);
+            if (data) setUser({...data as ZestyUser, ...session.user});
           });
       } else {
         setUser(null);
