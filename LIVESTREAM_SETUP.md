@@ -18,38 +18,6 @@ The livestream system allows users to:
   - `livekit-client` - Client-side SDK for connecting to LiveKit
   - `@livekit/components-react` - Pre-built React components for video UI
 
-## Database Schema
-
-### LiveStreamPage Model
-```prisma
-model LiveStreamPage {
-  id              String @id @default(cuid())
-  slug            String @unique
-  title           String @db.VarChar(200)
-  description     String? @db.VarChar(3000)
-  active          Boolean @default(false)
-  roomName        String? @unique
-  ingressId       String?
-  streamKey       String?
-  userId          String @unique
-  user            User @relation(...)
-  donations       LiveStreamDonation[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model LiveStreamDonation {
-  id              String @id @default(cuid())
-  amount          Int
-  message         String? @db.VarChar(500)
-  donorId         String?
-  donor           User?
-  streamId        String
-  stream          LiveStreamPage
-  createdAt       DateTime @default(now())
-}
-```
-
 ## Environment Variables
 
 Add these to your `.env` file:
@@ -70,9 +38,7 @@ NEXT_PUBLIC_LIVEKIT_WS_URL=wss://your-livekit-server.livekit.cloud
 
 For local development, you can run LiveKit locally:
 ```bash
-docker run --rm -p 7880:7880 \
-  -e LIVEKIT_KEYS="devkey: secret" \
-  livekit/livekit-server
+docker run --rm -it -p 7880:7880 livekit/livekit-server --dev --bind 0.0.0.0
 ```
 
 Then use:
@@ -80,30 +46,6 @@ Then use:
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=secret
 NEXT_PUBLIC_LIVEKIT_WS_URL=ws://localhost:7880
-```
-
-## File Structure
-
-```
-app/
-├── [lang]/
-│   └── live/
-│       ├── page.tsx                          # Landing page with active streams
-│       ├── [slug]/
-│       │   └── page.tsx                      # Individual stream page
-│       └── (client-renders)/
-│           └── livekit-components.tsx        # LiveKit React components
-├── api/
-│   └── live/
-│       ├── token/route.ts                    # Generate LiveKit access tokens
-│       ├── create/route.ts                   # Create/update livestream page
-│       ├── toggle-active/route.ts            # Toggle stream active status
-│       └── search/route.ts                   # Search for streams
-lib/
-├── livekit.ts                                # LiveKit server utilities
-└── payments.ts                               # Payment stub functions
-prisma/
-└── schema.prisma                             # Database schema
 ```
 
 ## API Routes
@@ -285,19 +227,6 @@ if (result.success) {
    - Send messages in chat (coming soon)
    - Send donations/tips (stub)
 
-## Integration with Existing Features
-
-### VIP Profile Integration
-The VIP profile page (`/[lang]/vip/[slug]`) includes a dropdown menu that shows a link to the user's livestream page if they have one:
-
-```typescript
-const hasActiveLive = await prisma.liveStreamPage.findFirst({
-  where: { userId: user.id }
-});
-```
-
-If `hasActiveLive` is true, the "Live Streams" option appears in the "Other Pages" dropdown.
-
 ## TODO / Future Enhancements
 
 1. **Payment Integration:**
@@ -315,30 +244,33 @@ If `hasActiveLive` is true, the "Live Streams" option appears in the "Other Page
    - Implement adaptive bitrate streaming
    - Add stream statistics/health monitoring
 
-4. **Recording:**
-   - Implement stream recording
-   - VOD (Video on Demand) playback
-   - Archive management
-
-5. **Notifications:**
+4. **Notifications:**
    - Notify followers when streamer goes live
    - Email/push notifications
    - Subscribe to favorite streamers
 
-6. **Analytics:**
+5. **Analytics:**
    - Viewer count tracking
    - Stream duration statistics
    - Donation/tip analytics
    - Most popular streams
 
-7. **Moderation:**
+6. **Moderation:**
    - Block/ban viewers
    - Chat moderation tools
    - Report system
 
-8. **RTMP Ingress:**
+7. **RTMP Ingress:**
    - Allow streaming from OBS/external software
    - Configure RTMP endpoints via LiveKit ingress
+
+
+### Long term future goal
+
+1. **Recording:**
+   - Implement stream recording
+   - VOD (Video on Demand) playback
+   - Archive management
 
 ## Troubleshooting
 

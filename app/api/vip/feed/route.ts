@@ -1,40 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { cursor, limit = 8 } = body;
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
-    // Get current user
-    let currentUser: any = null;
-    let currentUserId: string | undefined = undefined;
-
-    try {
-      currentUser = await getCurrentUser();
-      if (currentUser?.email) {
-        const found = await withRetry(() => 
-          prisma.user.findUnique({ 
-            where: { email: currentUser.email },
-            select: { id: true }
-          })
-        );
-        currentUserId = found?.id;
-      }
-    } catch (err) {
-      console.error('getCurrentUser failed:', err);
-    }
-
-    const isLoggedIn = !!currentUserId;
+    let user = await withRetry(() =>
+      prisma.user.findFirst({
+        where: {
+          supabaseId: session?.user?.id,
+        },
+        select: { zesty_id: true },
+      })
+    );
 
     // If user is logged in, fetch their subscription feed
-    if (isLoggedIn && currentUserId) {
+    if (user) {
       // Get user's active subscriptions
       const subscriptions = await withRetry(() =>
         prisma.vIPSubscription.findMany({
           where: {
-            subscriberId: currentUserId,
+            subscriberId: user.zesty_id,
             active: true,
             OR: [
               { expiresAt: null },
@@ -87,7 +77,7 @@ export async function POST(req: NextRequest) {
             }
           },
           likes: {
-            where: { userId: currentUserId },
+            where: { userId: user.zesty_id },
             select: { id: true },
           }
         },
@@ -183,7 +173,7 @@ export async function POST(req: NextRequest) {
             subscriptionPrice: true,
             user: {
               select: {
-                id: true,
+                zesty_id: true,
                 title: true,
                 slug: true,
                 verified: true,
@@ -235,7 +225,7 @@ export async function POST(req: NextRequest) {
             subscriptionPrice: true,
             user: {
               select: {
-                id: true,
+                zesty_id: true,
                 title: true,
                 slug: true,
                 verified: true,

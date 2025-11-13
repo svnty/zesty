@@ -7,8 +7,9 @@ import { ArrowLeft, Camera, Eye, DollarSign, Users, Image as ImageIcon } from "l
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface VIPPage {
   id: string;
@@ -23,7 +24,7 @@ interface VIPPage {
 export default function VIPManagementPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [loading, setLoading] = useState(true);
   const [vipPage, setVipPage] = useState<VIPPage | null>(null);
 
@@ -76,7 +77,13 @@ export default function VIPManagementPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your vip profile.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (
@@ -103,7 +110,7 @@ export default function VIPManagementPage() {
               </div>
             </div>
             {vipPage && (
-              <Link href={`/${lang}/vip/${session?.user?.slug || ''}`}>
+              <Link href={`/${lang}/vip/${user?.slug || ''}`}>
                 <Button variant="outline">
                   <Eye className="w-4 h-4 mr-2" />
                   View Page

@@ -1,6 +1,6 @@
 "use client";
 
-import { redirect, useParams } from "next/navigation";
+import { redirect, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Heart, Eye, EyeOff, Pencil, Plus } from "lucide-react";
@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface DatingProfile {
   id: string;
@@ -22,9 +23,10 @@ interface DatingProfile {
 
 export default function DatingManagementPage() {
   const { lang } = useParams<{ lang: string }>();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [profile, setProfile] = useState<DatingProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter(); 
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -97,7 +99,13 @@ export default function DatingManagementPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your dating profile.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (
@@ -164,7 +172,7 @@ export default function DatingManagementPage() {
                   <Switch checked={profile.active} onCheckedChange={() => toggleActive(profile.active)} />
                 </div>
                 <div className="flex gap-2">
-                  <Link href={`/${lang}/dating/${session?.user?.slug || ''}`}>
+                  <Link href={`/${lang}/dating/${user?.slug || ''}`}>
                     <Button variant="outline" size="sm">
                       {profile.active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </Button>

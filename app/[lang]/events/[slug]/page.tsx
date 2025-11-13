@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Calendar,
   MapPin,
   Users,
@@ -21,6 +20,8 @@ import {
   DollarSign,
 } from "lucide-react";
 import { StartChatButton } from "@/components/start-chat-button";
+import { useSupabaseSession } from "@/lib/supabase/client";
+import { toastManager } from "@/components/ui/toast";
 
 interface EventData {
   id: string;
@@ -86,7 +87,7 @@ interface EventComment {
 export default function EventPage() {
   const { slug, lang } = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [event, setEvent] = useState<EventData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -103,12 +104,18 @@ export default function EventPage() {
   const fetchEventData = async () => {
     try {
       const response = await fetch(`/api/events/${slug}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setEvent(data);
       } else if (response.status === 404) {
+        toastManager.add({
+          title: "Event not found",
+          description: "This event doesn't exist or has been removed.",
+          type: "warning",
+        });
         router.push(`/${lang}/events`);
+        return;
       }
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -119,6 +126,10 @@ export default function EventPage() {
 
   const handleJoinEvent = async () => {
     if (!session) {
+      toastManager.add({
+        title: "Please sign in to join the event.",
+        type: "warning",
+      });
       router.push(`/${lang}/auth/signin`);
       return;
     }
@@ -276,17 +287,17 @@ export default function EventPage() {
                     <div>
                       <p className="font-semibold">Date & Time</p>
                       <p className="text-sm text-muted-foreground">
-                        {startTime.toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
+                        {startTime.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
                         })}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {startTime.toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit' 
+                        {startTime.toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit'
                         })}
                         {endTime && ` - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
                       </p>
@@ -346,8 +357,8 @@ export default function EventPage() {
 
               {/* Join Button */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  onClick={handleJoinEvent} 
+                <Button
+                  onClick={handleJoinEvent}
                   disabled={isJoining || isPending}
                   size="lg"
                   className="flex-1"
@@ -496,11 +507,11 @@ export default function EventPage() {
                           {post.author.slug}
                         </Link>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(post.createdAt).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            hour: 'numeric', 
-                            minute: '2-digit' 
+                          {new Date(post.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
                           })}
                         </p>
                       </div>
@@ -531,11 +542,11 @@ export default function EventPage() {
                               </Link>
                               <p className="text-sm">{comment.content}</p>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(comment.createdAt).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric', 
-                                  hour: 'numeric', 
-                                  minute: '2-digit' 
+                                {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit'
                                 })}
                               </p>
                             </div>
@@ -556,15 +567,15 @@ export default function EventPage() {
                             className="flex-1"
                           />
                           <div className="flex flex-col gap-2">
-                            <Button 
+                            <Button
                               size="sm"
                               onClick={() => handleCreateComment(post.id)}
                               disabled={!replyContent.trim()}
                             >
                               <Send className="w-4 h-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="ghost"
                               onClick={() => {
                                 setReplyingTo(null);
@@ -577,9 +588,9 @@ export default function EventPage() {
                         </div>
                       </div>
                     ) : (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="mt-2"
                         onClick={() => setReplyingTo(post.id)}
                       >
@@ -601,22 +612,22 @@ export default function EventPage() {
             {/* Event Details */}
             <div className="border rounded-xl p-4 bg-card space-y-4">
               <h3 className="font-semibold">Event Details</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <Calendar className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                   <div className="text-sm">
                     <p className="font-medium">
-                      {startTime.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
+                      {startTime.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
                       })}
                     </p>
                     <p className="text-muted-foreground">
-                      {startTime.toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit' 
+                      {startTime.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit'
                       })}
                     </p>
                   </div>
@@ -652,8 +663,8 @@ export default function EventPage() {
                   .filter(a => a.status === 'GOING')
                   .slice(0, 10)
                   .map((attendee) => (
-                    <Link 
-                      key={attendee.id} 
+                    <Link
+                      key={attendee.id}
                       href={`/${lang}/vip/${attendee.user.slug}`}
                       className="flex items-center gap-2 p-2 rounded hover:bg-muted transition-colors"
                     >
@@ -714,6 +725,6 @@ function EventStatusBadge({ status }: { status: string }) {
     PAY_TO_JOIN: <Badge className="bg-yellow-600 hover:bg-yellow-700">Paid Event</Badge>,
     REQUEST_TO_JOIN: <Badge className="bg-blue-600 hover:bg-blue-700">Request to Join</Badge>,
   };
-  
+
   return badges[status as keyof typeof badges] || null;
 }

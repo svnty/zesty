@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -13,9 +14,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user.id },
+    }));
 
     if (!user) {
       return NextResponse.json(
@@ -35,34 +36,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if subscription already exists
-    const existingSubscription = await prisma.pushSubscription.findUnique({
+    const existingSubscription = await withRetry(() => prisma.pushSubscription.findUnique({
       where: { endpoint },
-    });
+    }));
 
     if (existingSubscription) {
       // Update existing subscription
-      const subscription = await prisma.pushSubscription.update({
+      const subscription = await withRetry(() => prisma.pushSubscription.update({
         where: { endpoint },
         data: {
           keys: JSON.stringify(keys),
-          userId: user.id,
+          zesty_id: user.zesty_id,
           active: true,
           userAgent: req.headers.get('user-agent') || undefined,
         },
-      });
+      }));
 
       return NextResponse.json({ success: true, subscription });
     }
 
     // Create new subscription
-    const subscription = await prisma.pushSubscription.create({
+    const subscription = await withRetry(() => prisma.pushSubscription.create({
       data: {
         endpoint,
         keys: JSON.stringify(keys),
-        userId: user.id,
+        zesty_id: user.zesty_id,
         userAgent: req.headers.get('user-agent') || undefined,
       },
-    });
+    }));
 
     return NextResponse.json({ success: true, subscription });
   } catch (error) {
@@ -76,7 +77,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -85,9 +87,9 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user.id },
+    }));
 
     if (!user) {
       return NextResponse.json(
@@ -107,15 +109,15 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Soft delete - mark as inactive
-    await prisma.pushSubscription.updateMany({
+    await withRetry(() => prisma.pushSubscription.updateMany({
       where: {
         endpoint,
-        userId: user.id,
+        zesty_id: user.zesty_id,
       },
       data: {
         active: false,
       },
-    });
+    }));
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -129,7 +131,8 @@ export async function DELETE(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -138,14 +141,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user.id },
       include: {
         pushSubscriptions: {
           where: { active: true },
         },
       },
-    });
+    }));
 
     if (!user) {
       return NextResponse.json(

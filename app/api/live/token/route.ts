@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
-import { generateBroadcasterToken, generateViewerToken } from '@/lib/livekit';
+import { generateBroadcasterToken, generateViewerToken } from '@/lib/live/livekit';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/token route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { roomName, role } = await request.json();
 
     if (!roomName) {
@@ -29,16 +14,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user details
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-      select: { id: true, slug: true, title: true },
+      where: { supabaseId: session?.user?.id },
     }));
 
     if (!user) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
@@ -47,20 +33,20 @@ export async function POST(request: NextRequest) {
       where: { roomName },
       select: { 
         channel: {
-          select: { userId: true },
+          select: { zesty_id: true },
         },
       },
     }));
 
-    const isOwner = stream?.channel.userId === user.id;
+    const isOwner = stream?.channel.zesty_id === user.zesty_id;
     const participantName = user.slug || user.title || 'Anonymous';
 
     // Generate appropriate token based on role and ownership
     let token: string;
     if (role === 'broadcaster' && isOwner) {
-      token = await generateBroadcasterToken(roomName, user.id, participantName);
+      token = await generateBroadcasterToken(roomName, user.zesty_id, participantName);
     } else {
-      token = await generateViewerToken(roomName, user.id, participantName);
+      token = await generateViewerToken(roomName, user.zesty_id, participantName);
     }
 
     return NextResponse.json({

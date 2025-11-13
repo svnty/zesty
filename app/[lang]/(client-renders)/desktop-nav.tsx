@@ -1,22 +1,20 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
 import ThemeToggle from "./theme";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/origin_ui_old/button";
-import { BookMarked, BookOpen, ScanFace } from "lucide-react";
+import { BookMarked, ScanFace } from "lucide-react";
 import {
   RiFacebookFill,
-  RiGoogleFill,
-  RiMicrosoftFill,
-  RiTwitterXFill,
+  RiGoogleFill
 } from "@remixicon/react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { UnreadMessagesBadge } from "@/components/unread-messages-badge";
+import { UnreadMessagesBadge } from "@/app/[lang]/(client-renders)/unread-messages-badge";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 export default function DesktopNav() {
-  const { data: session, status } = useSession();
+  const { data: session, status, supabase } = useSupabaseSession();
   const { lang } = useParams();
 
   return (
@@ -107,7 +105,11 @@ export default function DesktopNav() {
                 </DialogHeader>
               </div>
               <div className="flex flex-col gap-2">
-                <Button className="bg-[#DB4437] text-white after:flex-1 hover:bg-[#DB4437]/85 cursor-pointer" onClick={() => signIn("google", { callbackUrl: `/${lang}/dash` })}
+                <Button className="bg-[#DB4437] text-white after:flex-1 hover:bg-[#DB4437]/85 cursor-pointer" onClick={() => supabase.auth.signInWithOAuth({
+                  provider: 'google', options: {
+                    redirectTo: `${window.location.origin}/api/auth/callback`,
+                  },
+                })}
                   style={{
                     border: "none"
                   }}>
@@ -116,7 +118,7 @@ export default function DesktopNav() {
                   </span>
                   Continue with Google
                 </Button>
-                <Button className="bg-[#1877f2] text-white after:flex-1 hover:bg-[#1877f2]/85 cursor-pointer" onClick={() => signIn("facebook", { callbackUrl: `/${lang}/dash` })}
+                <Button className="bg-[#1877f2] text-white after:flex-1 hover:bg-[#1877f2]/85 cursor-pointer" onClick={() => supabase.auth.signInWithOAuth({ provider: 'facebook' })}
                   style={{
                     border: "none"
                   }}>
@@ -125,8 +127,8 @@ export default function DesktopNav() {
                   </span>
                   Continue with Facebook
                 </Button>
-                {process.env.AZURE_AD_CLIENT_ID && (
-                  <Button className="bg-[#333333] text-white after:flex-1 hover:bg-[#333333]/85 cursor-pointer" onClick={() => signIn("azure-ad", { callbackUrl: `/${lang}/dash` })}
+                {/* {process.env.AZURE_AD_CLIENT_ID && (
+                  <Button className="bg-[#333333] text-white after:flex-1 hover:bg-[#333333]/85 cursor-pointer" onClick={() => supabase.auth.signInWithOAuth({ provider: 'azure' })}
                     style={{
                       border: "none"
                     }}>
@@ -135,7 +137,7 @@ export default function DesktopNav() {
                     </span>
                     Continue with Microsoft
                   </Button>
-                )}
+                )} */}
               </div>
 
               <p className="text-muted-foreground text-center text-xs">

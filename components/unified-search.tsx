@@ -152,6 +152,7 @@ export default function UnifiedSearch({
       // Navigate directly to the user's profile page
       const basePath = searchType === 'escorts' ? 'escorts' : searchType === 'vip' ? 'vip' : 'live';
       router.push(`/${lang}/${basePath}/${user.slug}`);
+      return;
     }
   };
 

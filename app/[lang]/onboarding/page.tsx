@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Stepper, Step, StepperIndicator, useStepper } from "@/components/ui/stepper";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox, ComboboxInput, ComboboxPopup, ComboboxList, ComboboxItem, ComboboxEmpty } from "@/components/ui/combobox";
 import { searchLocations, type LocationSuggestion } from '@/lib/geocoding';
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface OnboardingData {
   dob: string;
@@ -39,7 +39,6 @@ function StepContent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const { update } = useSession();
   
   // For suburb/city search
   const [searchQuery, setSearchQuery] = useState("");
@@ -159,9 +158,9 @@ function StepContent() {
         const error = await response.json();
         throw new Error(error.message || "Failed to complete onboarding");
       }
+      
 
-      // Update the session
-      await update();
+      // TODO check if update() session is needed
       
       toastManager.add({ title: "Welcome! Your profile is ready 🎉", type: "success" });
       router.push("/");
@@ -539,7 +538,7 @@ function StepContent() {
 }
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const router = useRouter();
 
   // Redirect if already onboarded or not authenticated

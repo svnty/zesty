@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
           }
         },
         select: {
-          id: true,
+          zesty_id: true,
           slug: true,
           title: true,
           images: {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     );
 
     const formattedCreators = users.map((user) => ({
-      value: user.id,
+      value: user.zesty_id,
       label: user.title || user.slug || 'Unknown',
       slug: user.slug || '',
       image: user.images?.[0]?.url || null,

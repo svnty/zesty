@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
-import { createRoom, generateRoomName } from '@/lib/livekit';
+import { createRoom, generateRoomName } from '@/lib/live/livekit';
+import { serverSupabase } from '@/lib/supabase/server';
 
 // Start a new live stream session
 export async function POST(request: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/start-stream route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { title } = await request.json();
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
     // Get user with their livestream channel
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
+      where: { supabaseId: session.user?.id },
       select: { 
-        id: true, 
+        zesty_id: true, 
         slug: true,
         liveStreamPage: {
           select: {
@@ -80,7 +68,7 @@ export async function POST(request: NextRequest) {
       data: {
         channelId: user.liveStreamPage!.id,
         roomName,
-        title: title || undefined,
+        title: title || user.slug + "'s Live Stream",
         isLive: true,
         viewerCount: 0,
       },

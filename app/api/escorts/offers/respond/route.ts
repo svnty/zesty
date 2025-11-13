@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
 import { sendOfferAcceptedNotification, sendOfferRejectedNotification, sendNewMessageNotification } from "@/lib/push-notifications";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
 
     const body = await req.json();
     const { offerId, action } = body; // action: 'accept' or 'reject'
@@ -26,6 +19,14 @@ export async function POST(req: NextRequest) {
     if (action !== "accept" && action !== "reject") {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Get the offer and verify ownership
     const offer = await withRetry(() =>
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
-    if (offer.workerId !== userId) {
+    if (offer.workerId !== user?.zesty_id) {
       return NextResponse.json(
         { error: "You are not authorized to respond to this offer" },
         { status: 403 }
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
           include: {
             client: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 bio: true,
                 verified: true,
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
             },
             worker: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 bio: true,
                 verified: true,
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
           prisma.chatMessage.create({
             data: {
               content: `❌ Offer for ${offer.service.replace(/_/g, " ")} was declined`,
-              senderId: userId,
+              senderId: user.zesty_id,
               chatId: offer.chatId!,
             },
           })
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
         include: {
           client: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
           },
           worker: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
         prisma.chatMessage.create({
           data: {
             content: `✅ Offer for ${offer.service.replace(/_/g, " ")} was accepted! Payment of $${offer.amount} is being processed.`,
-            senderId: userId,
+            senderId: user.zesty_id,
             chatId: offer.chatId!,
           },
         })

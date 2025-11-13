@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,30 +13,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get current user
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in vip/like route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: (session?.user as any)?.id },
+    }));
     
-    if (!currentUser?.email) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
-    }
-
-    const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-    }));
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
       );
     }
 
@@ -55,8 +42,8 @@ export async function POST(req: NextRequest) {
     // Toggle like
     const existingLike = await withRetry(() => prisma.vIPLike.findUnique({
       where: {
-        userId_contentId: {
-          userId: user.id,
+        zesty_id_contentId: {
+          zesty_id: user.zesty_id,
           contentId: contentId,
         },
       },
@@ -78,7 +65,7 @@ export async function POST(req: NextRequest) {
       // Like
       await withRetry(() => prisma.vIPLike.create({
         data: {
-          userId: user.id,
+          zesty_id: user.zesty_id,
           contentId: contentId,
         },
       }));

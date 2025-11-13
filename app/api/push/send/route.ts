@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { sendPushNotification } from '@/lib/push-notifications';
+import { serverSupabase } from '@/lib/supabase/server';
 
 // This is an example endpoint - you would call this from your backend
 // when you want to send notifications (e.g., new message, new match, etc.)
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
     // Only authenticated users or server-side processes should send notifications
     if (!session?.user?.email) {
@@ -28,14 +29,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user's active push subscriptions
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { zesty_id: userId },
       include: {
         pushSubscriptions: {
           where: { active: true },
         },
       },
-    });
+    }));
 
     if (!user || user.pushSubscriptions.length === 0) {
       return NextResponse.json(

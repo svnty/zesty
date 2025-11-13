@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 // Get count of unread messages for current user
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     const userId = (session?.user as any)?.id;
     
     if (!userId) {
@@ -19,12 +19,12 @@ export async function GET(req: NextRequest) {
     // 3. User has not read the message
     
     // First, get all messages from others in user's chats
-    const messagesFromOthers = await prisma.chatMessage.findMany({
+    const messagesFromOthers = await withRetry(() => prisma.chatMessage.findMany({
       where: {
         chat: {
           activeUsers: {
             some: {
-              id: userId,
+              supabaseId: userId,
             },
           },
         },
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         id: true,
         chatId: true,
       },
-    });
+    }));
 
     if (messagesFromOthers.length === 0) {
       return NextResponse.json({
@@ -46,18 +46,23 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: userId },
+      select: { zesty_id: true },
+    }));
+
     // Find which messages have been read by this user
-    const readMessages = await prisma.messageRead.findMany({
+    const readMessages = await withRetry(() => prisma.messageRead.findMany({
       where: {
         messageId: {
           in: messagesFromOthers.map(m => m.id),
         },
-        userId: userId,
+        zesty_id: user?.zesty_id,
       },
       select: {
         messageId: true,
       },
-    });
+    }));
 
     const readMessageIds = new Set(readMessages.map(r => r.messageId));
     const unreadMessages = messagesFromOthers.filter(m => !readMessageIds.has(m.id));

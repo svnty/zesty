@@ -46,10 +46,7 @@ export async function GET() {
         },
         worker: {
           select: {
-            name: false,
-            image: false,
-
-            id: true,
+            zesty_id: true,
             slug: true,
             dob: true,
             gender: true,
@@ -83,7 +80,7 @@ export async function GET() {
 
     const averageRating = await withRetry(() => prisma.review.aggregate({
       where: {
-        revieweeId: ad.worker.id
+        revieweeId: ad.worker.zesty_id
       },
       _avg: {
         rating: true

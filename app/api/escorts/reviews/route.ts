@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
     const { revieweeId, offerId, rating, comment } = body;
 
@@ -28,6 +21,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Verify the offer exists and is in CONFIRMED or RELEASED status
     const offer = await withRetry(() =>
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the user is the client of this offer
-    if (offer.clientId !== userId) {
+    if (offer.clientId !== user?.zesty_id) {
       return NextResponse.json(
         { error: "You can only review offers you are the client of" },
         { status: 403 }
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       prisma.review.findFirst({
         where: {
           offerId,
-          reviewerId: userId,
+          reviewerId: user.zesty_id,
         },
       })
     );
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     const review = await withRetry(() =>
       prisma.review.create({
         data: {
-          reviewerId: userId,
+          reviewerId: user.zesty_id,
           revieweeId,
           offerId,
           rating: Number.parseInt(rating),
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
         include: {
           reviewer: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               verified: true,
               images: {
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
           },
           reviewee: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               verified: true,
               images: {
@@ -154,7 +155,7 @@ export async function GET(req: NextRequest) {
         include: {
           reviewer: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               verified: true,
               images: {
@@ -172,7 +173,7 @@ export async function GET(req: NextRequest) {
     const averageRating =
       reviews.length > 0
         ? reviews.reduce((sum, review) => sum + review.rating, 0) /
-          reviews.length
+        reviews.length
         : 0;
 
     return NextResponse.json({

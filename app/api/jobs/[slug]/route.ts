@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    // Safely get current user, proceeding without authentication if it fails
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in jobs route, proceeding as unauthenticated:', err);
-      currentUser = null;
-    }
-    
+
     const { slug } = await params;
 
     if (!slug) {
@@ -25,14 +17,13 @@ export async function GET(
       );
     }
 
-    // Get full user from database if logged in
-    let user = null;
-    if (currentUser?.email) {
-      user = await withRetry(() => prisma.user.findUnique({
-        where: { email: currentUser.email },
-        select: { id: true },
-      }));
-    }
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     const job = await withRetry(() => prisma.job.findUnique({
       where: { slug },
@@ -71,7 +62,7 @@ export async function GET(
             ownerId: true,
             admins: {
               select: {
-                userId: true,
+                zesty_id: true,
               },
             },
             _count: {
@@ -81,9 +72,9 @@ export async function GET(
             },
           },
         },
-        applications: user?.id ? {
+        applications: user?.zesty_id ? {
           where: {
-            applicantId: user.id,
+            applicantId: user.zesty_id,
           },
           select: {
             id: true,
@@ -113,9 +104,9 @@ export async function GET(
     }
 
     // Check if user is studio admin/owner
-    const isStudioAdmin = user?.id && (
-      job.studio.ownerId === user.id ||
-      job.studio.admins.some(admin => admin.userId === user.id)
+    const isStudioAdmin = user?.zesty_id && (
+      job.studio.ownerId === user.zesty_id ||
+      job.studio.admins.some(admin => admin.zesty_id === user.zesty_id)
     );
 
     // Get studio reviews and average rating
@@ -128,7 +119,7 @@ export async function GET(
         wouldWorkAgain: true,
         reviewer: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
           },
         },

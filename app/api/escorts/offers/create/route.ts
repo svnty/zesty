@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
-import { PrivateAdServiceCategory, DaysAvailable } from "@prisma/client";
+import { PrivateAdServiceCategory, PrivateAdDaysAvailable, PrivateOfferStatus } from "@prisma/client";
 import { sendNewOfferNotification, sendNewMessageNotification } from "@/lib/push-notifications";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
-
     const body = await req.json();
     const {
       workerId,
@@ -33,6 +25,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
+      );
+    }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
       );
     }
 
@@ -73,14 +80,14 @@ export async function POST(req: NextRequest) {
           where: {
             activeUsers: {
               some: {
-                id: userId,
+                zesty_id: user?.zesty_id,
               },
             },
           },
           include: {
             activeUsers: {
               select: {
-                id: true,
+                zesty_id: true,
               },
             },
           },
@@ -89,8 +96,8 @@ export async function POST(req: NextRequest) {
 
       // Find a chat that has exactly these two users
       const existingChat = allChats.find(chat => {
-        const userIds = chat.activeUsers.map(u => u.id).sort();
-        const targetIds = [userId, workerId].sort();
+        const userIds = chat.activeUsers.map(u => u.zesty_id).sort();
+        const targetIds = [user?.zesty_id, workerId].sort();
         return userIds.length === 2 && 
                userIds[0] === targetIds[0] && 
                userIds[1] === targetIds[1];
@@ -104,7 +111,7 @@ export async function POST(req: NextRequest) {
           prisma.chat.create({
             data: {
               activeUsers: {
-                connect: [{ id: userId }, { id: workerId }],
+                connect: [{ zesty_id: user?.zesty_id }, { zesty_id: workerId }],
               },
             },
           })
@@ -117,24 +124,24 @@ export async function POST(req: NextRequest) {
     const offer = await withRetry(() =>
       prisma.privateOffer.create({
         data: {
-          clientId: userId,
+          clientId: user?.zesty_id,
           workerId,
           adId,
           service: service as PrivateAdServiceCategory,
           durationMin: Number.parseInt(durationMin),
           extras: extras || [],
           scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
-          dayRequested: dayRequested as DaysAvailable | null,
+          dayRequested: dayRequested as PrivateAdDaysAvailable | null,
           isAsap: isAsap || false,
           amount: Number.parseInt(amount),
           chatId: finalChatId,
-          status: "OFFER",
+          status: "OFFER" as PrivateOfferStatus,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         },
         include: {
           client: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -146,7 +153,7 @@ export async function POST(req: NextRequest) {
           },
           worker: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -165,7 +172,7 @@ export async function POST(req: NextRequest) {
       prisma.chatMessage.create({
         data: {
           content: `📋 New offer received: ${service.replace(/_/g, " ")} for $${amount}`,
-          senderId: userId,
+          senderId: user?.zesty_id,
           chatId: finalChatId,
         },
       })

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { sendNewMessageNotification } from "@/lib/push-notifications";
+import { serverSupabase } from "@/lib/supabase/server";
 
 // Get messages for a specific chat
 export async function GET(
@@ -10,29 +9,34 @@ export async function GET(
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id;
-    
-    if (!userId) {
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session?.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { chatId } = await params;
 
     // Verify user is part of this chat
-    const chat = await prisma.chat.findFirst({
+    const chat = await withRetry(() => prisma.chat.findFirst({
       where: {
         id: chatId,
         activeUsers: {
           some: {
-            id: userId,
+            zesty_id: user.zesty_id,
           },
         },
       },
       include: {
         activeUsers: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             images: {
               where: { default: true },
@@ -47,7 +51,7 @@ export async function GET(
           include: {
             sender: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 images: {
                   where: { default: true },
@@ -58,19 +62,19 @@ export async function GET(
           },
         },
       },
-    });
+    }));
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    const otherUser = chat.activeUsers.find((user) => user.id !== userId);
+    const otherUser = chat.activeUsers.find((chatUser) => chatUser.zesty_id !== user.zesty_id);
 
     // Fetch other user's private ad if they have one
     let otherUserAd = null;
     if (otherUser) {
-      otherUserAd = await prisma.privateAd.findUnique({
-        where: { workerId: otherUser.id },
+      otherUserAd = await withRetry(() => prisma.privateAd.findUnique({
+        where: { workerId: otherUser.zesty_id },
         include: {
           services: {
             include: {
@@ -81,18 +85,18 @@ export async function GET(
             where: { active: true },
           },
         },
-      });
+      }));
     }
 
     // Fetch offers related to this chat
-    const offers = await prisma.privateOffer.findMany({
+    const offers = await withRetry(() => prisma.privateOffer.findMany({
       where: {
         chatId: chatId,
       },
       include: {
         client: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             verified: true,
             images: {
@@ -103,7 +107,7 @@ export async function GET(
         },
         worker: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             verified: true,
             images: {
@@ -116,7 +120,7 @@ export async function GET(
       orderBy: {
         createdAt: 'asc',
       },
-    });
+    }));
 
     return NextResponse.json({
       id: chat.id,
@@ -137,10 +141,14 @@ export async function POST(
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id;
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session?.user?.id },
+      select: { zesty_id: true },
+    }));
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -152,32 +160,32 @@ export async function POST(
     }
 
     // Verify user is part of this chat
-    const chat = await prisma.chat.findFirst({
+    const chat = await withRetry(() => prisma.chat.findFirst({
       where: {
         id: chatId,
         activeUsers: {
           some: {
-            id: userId,
+            zesty_id: user.zesty_id,
           },
         },
       },
-    });
+    }));
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
     // Create the message
-    const message = await prisma.chatMessage.create({
+    const message = await withRetry(() => prisma.chatMessage.create({
       data: {
         content: content.trim(),
-        senderId: userId,
+        senderId: user.zesty_id,
         chatId: chatId,
       },
       include: {
         sender: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             images: {
               where: { default: true },
@@ -186,19 +194,19 @@ export async function POST(
           },
         },
       },
-    });
+    }));
 
     // Get other user in the chat to send notification
-    const chatWithUsers = await prisma.chat.findUnique({
+    const chatWithUsers = await withRetry(() => prisma.chat.findUnique({
       where: { id: chatId },
       include: {
         activeUsers: {
-          select: { id: true, slug: true },
+          select: { zesty_id: true, slug: true },
         },
       },
-    });
+    }));
 
-    const recipientId = chatWithUsers?.activeUsers.find(u => u.id !== userId)?.id;
+    const recipientId = chatWithUsers?.activeUsers.find((chatUser) => chatUser.zesty_id !== user.zesty_id)?.zesty_id;
     
     if (recipientId) {
       // Send push notification to recipient

@@ -3,11 +3,11 @@
 import { redirect, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
-  ArrowLeft, 
-  CreditCard, 
-  DollarSign, 
-  TrendingUp, 
+import {
+  ArrowLeft,
+  CreditCard,
+  DollarSign,
+  TrendingUp,
   TrendingDown,
   Calendar,
   Download,
@@ -19,8 +19,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface Transaction {
   id: string;
@@ -42,7 +43,7 @@ interface BillingStats {
 
 export default function BillingPage() {
   const { lang } = useParams<{ lang: string }>();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<BillingStats>({
     totalEarned: 0,
@@ -52,6 +53,7 @@ export default function BillingPage() {
     thisMonthSpent: 0,
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -66,7 +68,7 @@ export default function BillingPage() {
       // TODO: Implement API calls
       // const response = await fetch("/api/billing/stats");
       // const transactionsResponse = await fetch("/api/billing/transactions");
-      
+
       // Mock data for now
       setStats({
         totalEarned: 5420.50,
@@ -121,7 +123,13 @@ export default function BillingPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access billing information.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   const incomeTransactions = transactions.filter(t => t.type === "income");
@@ -267,11 +275,10 @@ export default function BillingPage() {
                   <Card key={transaction.id} className="p-4 hover:bg-accent/50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          transaction.type === "income" 
-                            ? "bg-green-500/10 text-green-500" 
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${transaction.type === "income"
+                            ? "bg-green-500/10 text-green-500"
                             : "bg-red-500/10 text-red-500"
-                        }`}>
+                          }`}>
                           {transaction.type === "income" ? (
                             <ArrowUpRight className="w-5 h-5" />
                           ) : (
@@ -288,16 +295,15 @@ export default function BillingPage() {
                       <div className="flex items-center gap-3">
                         <Badge variant={
                           transaction.status === "completed" ? "default" :
-                          transaction.status === "pending" ? "secondary" :
-                          "destructive"
+                            transaction.status === "pending" ? "secondary" :
+                              "destructive"
                         }>
                           {transaction.status}
                         </Badge>
-                        <div className={`text-lg font-bold ${
-                          transaction.type === "income" 
-                            ? "text-green-600 dark:text-green-400" 
+                        <div className={`text-lg font-bold ${transaction.type === "income"
+                            ? "text-green-600 dark:text-green-400"
                             : "text-red-600 dark:text-red-400"
-                        }`}>
+                          }`}>
                           {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
                         </div>
                       </div>

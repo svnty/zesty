@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    // Safely get current user, proceeding without authentication if it fails
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in events route, proceeding as unauthenticated:', err);
-      currentUser = null;
-    }
-    
     const { slug } = await params;
 
     if (!slug) {
@@ -25,14 +16,13 @@ export async function GET(
       );
     }
 
-    // Get full user from database if logged in
-    let user = null;
-    if (currentUser?.email) {
-      user = await withRetry(() => prisma.user.findUnique({
-        where: { email: currentUser.email },
-        select: { id: true },
-      }));
-    }
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Fetch event with all related data
     const event = await withRetry(() => prisma.event.findUnique({
@@ -54,7 +44,7 @@ export async function GET(
         organizerId: true,
         organizer: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             title: true,
             verified: true,
@@ -71,7 +61,7 @@ export async function GET(
             status: true,
             user: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 title: true,
                 images: {
@@ -95,7 +85,7 @@ export async function GET(
             createdAt: true,
             author: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 title: true,
                 images: {
@@ -112,7 +102,7 @@ export async function GET(
                 createdAt: true,
                 author: {
                   select: {
-                    id: true,
+                    zesty_id: true,
                     slug: true,
                     title: true,
                     images: {
@@ -145,13 +135,13 @@ export async function GET(
     }
 
     // Check if user is the organizer
-    const isOrganizer = user?.id === event.organizerId;
+    const isOrganizer = user?.zesty_id === event.organizerId;
 
     // Check user's attendance status
     let userAttendanceStatus = null;
-    if (user?.id) {
+    if (user?.zesty_id) {
       const attendance = event.attendees.find(
-        a => a.user.id === user.id
+        a => a.user.zesty_id === user.zesty_id
       );
       userAttendanceStatus = attendance?.status || null;
     }

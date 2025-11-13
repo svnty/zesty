@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/create route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-
-    if (!currentUser?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Find user
-    const user = await withRetry(() =>
-      prisma.user.findUnique({ where: { email: currentUser.email }, select: { id: true, liveStreamPage: true } })
-    );
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true, liveStreamPage: true },
+    }));
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -33,7 +24,7 @@ export async function POST(req: NextRequest) {
     const created = await withRetry(() =>
       prisma.liveStreamPage.create({
         data: {
-          user: { connect: { id: user.id } },
+          user: { connect: { zesty_id: user.zesty_id } },
           active: true,
           description: null,
         },

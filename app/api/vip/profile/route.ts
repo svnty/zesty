@@ -1,53 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
-
-// DEBUG MODE: This route will return an explicit message after each major step.
-// We'll progressively enable the next step once the previous step is confirmed working in the deployed environment.
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Step 1: parse body
     let body: any;
     try {
       body = await req.json();
     } catch (err) {
-      return NextResponse.json({ step: 1, ok: false, message: 'Failed to parse JSON body', error: String(err) }, { status: 400 });
+      return NextResponse.json({ ok: false, message: 'Failed to parse JSON body', error: String(err) }, { status: 400 });
     }
 
     const { slug, cursor, limit = 20 } = body;
     if (!slug) {
-      return NextResponse.json({ step: 1, ok: false, message: 'Slug is required' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: 'Slug is required' }, { status: 400 });
     }
 
     const decodedSlug = decodeURIComponent(slug);
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
-    let currentUser: any = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      // In production, if session check fails, just proceed without user (public view)
-      console.error('getCurrentUser failed, proceeding as unauthenticated:', err);
-      currentUser = null;
-    }
-
-
-    let currentUserId: string | undefined = undefined;
-    try {
-      if (currentUser?.email) {
-        const found = await withRetry(() => prisma.user.findUnique({ where: { email: currentUser.email } }));
-        currentUserId = found?.id;
-      }
-    } catch (err) {
-      console.error('finding current user in DB failed, proceeding without userId:', err);
-      currentUserId = undefined;
-    }
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session?.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Step 4: fetch VIP page
-    let vipPage: any = null;
-    try {
-      vipPage = await withRetry(() => prisma.vIPPage.findFirst({
+    let vipPage = await withRetry(() => prisma.vIPPage.findFirst({
         where: {
           user: { slug: decodedSlug },
           active: true,
@@ -55,7 +35,7 @@ export async function POST(req: NextRequest) {
         include: {
           user: {
             select: {
-              id: true,
+              zesty_id: true,
               title: true,
               slug: true,
               bio: true,
@@ -82,10 +62,7 @@ export async function POST(req: NextRequest) {
           },
           _count: { select: { content: true } },
         },
-      }));
-    } catch (err) {
-      return NextResponse.json({ step: 4, ok: false, message: 'prisma.vIPPage.findFirst failed', error: String(err) }, { status: 500 });
-    }
+    }));
 
     if (!vipPage) {
       return NextResponse.json({ step: 4, ok: false, message: 'VIP page not found' }, { status: 404 });
@@ -101,12 +78,12 @@ export async function POST(req: NextRequest) {
 
     // Step 6: check subscription
     let hasActiveSubscription = false;
-    const isOwnPage = currentUserId === vipPage.userId;
+    const isOwnPage = user?.zesty_id === vipPage.zesty_id;
 
-    if (currentUserId && !isOwnPage) {
+    if (user?.zesty_id && !isOwnPage) {
       try {
         const subscription = await withRetry(() => prisma.vIPSubscription.findUnique({
-          where: { subscriberId_vipPageId: { subscriberId: currentUserId, vipPageId: vipPage.id } },
+          where: { subscriberId_vipPageId: { subscriberId: user.zesty_id, vipPageId: vipPage.id } },
         }));
         hasActiveSubscription = subscription?.active === true && (!subscription.expiresAt || subscription.expiresAt > new Date());
       } catch (err) {
@@ -119,7 +96,7 @@ export async function POST(req: NextRequest) {
     try {
       const contentQuery: any = {
         where: { vipPageId: vipPage.id },
-        include: { _count: { select: { likes: true, comments: true } }, likes: currentUserId ? { where: { userId: currentUserId }, select: { id: true } } : false },
+        include: { _count: { select: { likes: true, comments: true } }, likes: user?.zesty_id ? { where: { userId: user.zesty_id }, select: { id: true } } : false },
         orderBy: { createdAt: 'desc' },
         take: limit + 1,
       };
@@ -141,7 +118,7 @@ export async function POST(req: NextRequest) {
     // Check if user has active escort profile
     const hasActiveEscort = await withRetry(() => prisma.privateAd.findFirst({
       where: {
-        workerId: vipPage.userId,
+        workerId: vipPage.zesty_id,
         active: true,
       },
       select: { id: true },
@@ -150,7 +127,7 @@ export async function POST(req: NextRequest) {
     // Check if user has active live stream page
     const hasActiveLive = await withRetry(() => prisma.liveStreamPage.findFirst({
       where: {
-        userId: vipPage.userId,
+        zesty_id: vipPage.zesty_id,
         active: true,
       },
       select: {
@@ -175,7 +152,7 @@ export async function POST(req: NextRequest) {
     const canViewContent = isOwnPage || hasActiveSubscription || vipPage.isFree;
 
     const formattedContent = items.map((item: any) => {
-      const isLiked = currentUserId && item.likes && item.likes.length > 0;
+      const isLiked = user?.zesty_id && item.likes && item.likes.length > 0;
       if (!canViewContent) {
         return { id: item.id, type: item.type, locked: true, likesCount: item._count.likes, commentsCount: item._count.comments, createdAt: item.createdAt, isLiked: false };
       }
@@ -191,7 +168,7 @@ export async function POST(req: NextRequest) {
       bannerUrl: vipPage.bannerUrl,
       subscriptionPrice: vipPage.subscriptionPrice,
       isFree: vipPage.isFree,
-      user: { id: vipPage.user.id, slug: vipPage.user.slug, bio: vipPage.user.bio, location: vipPage.user.location, suburb: vipPage.user.suburb, verified: vipPage.user.verified, lastActive: vipPage.user.lastActive, createdAt: vipPage.user.createdAt, image: userImage },
+      user: { id: vipPage.user.zesty_id, slug: vipPage.user.slug, bio: vipPage.user.bio, location: vipPage.user.location, suburb: vipPage.user.suburb, verified: vipPage.user.verified, lastActive: vipPage.user.lastActive, createdAt: vipPage.user.createdAt, image: userImage },
       hasActiveSubscription,
       isOwnPage,
       totalContent: vipPage._count.content,

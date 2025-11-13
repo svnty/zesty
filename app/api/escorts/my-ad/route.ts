@@ -1,31 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const userId = (session.user as { id: string }).id;
-
-    // Fetch user's private ad (user can only have one)
-    const ad = await withRetry(() =>
-      prisma.privateAd.findUnique({
-        where: { workerId: userId },
-        include: {
-          services: {
-            include: {
-              options: true,
+    const userWithAdds = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: {
+        zesty_id: true, 
+        privateAds: {
+          include: {
+            services: {
+              include: {
+                options: true,
+              },
             },
           },
-          extras: true,
-        },
-      })
-    );
+          take: 1,
+        }
+      },
+    }));
+
+    if (!userWithAdds) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    const ad = userWithAdds.privateAds[0] || null;
 
     if (!ad) {
       return NextResponse.json({ ad: null });

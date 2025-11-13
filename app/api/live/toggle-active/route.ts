@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 // This route now toggles the LiveStreamPage (channel) active status
 // Not individual stream sessions
 export async function POST(request: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/toggle-active route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { active } = await request.json();
 
     if (typeof active !== 'boolean') {
@@ -30,10 +15,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-      select: { id: true, liveStreamPage: true },
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true, liveStreamPage: true },
     }));
 
     if (!user) {
@@ -52,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Update channel active status
     const updated = await withRetry(() => prisma.liveStreamPage.update({
-      where: { userId: user.id },
+      where: { zesty_id: user.zesty_id },
       data: { active },
     }));
 

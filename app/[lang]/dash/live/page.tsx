@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface LiveChannel {
   id: string;
@@ -21,7 +22,7 @@ interface LiveChannel {
 export default function LiveManagementPage() {
   const { lang } = useParams() as { lang?: string };
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [channel, setChannel] = useState<LiveChannel | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,7 +30,12 @@ export default function LiveManagementPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push(`/${lang ?? ""}`);
+      toastManager.add({
+        title: "Authentication Required",
+        description: "Please log in to access your live channel.",
+        type: "warning",
+      });
+      router.push(`/${lang}`);
       return;
     }
 

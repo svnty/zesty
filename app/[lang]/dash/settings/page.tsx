@@ -5,14 +5,15 @@ import Link from "next/link";
 import { ArrowLeft, Settings, User, Bell, Lock, CreditCard, HelpCircle, IdCard, DoorOpen, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { signOut, useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
 import { PushNotificationToggle } from "@/components/push-notification-toggle";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 export default function SettingsPage() {
   const { lang } = useParams<{ lang: string }>();
-  const router = useRouter();
-  const { status } = useSession();
+  const { status, supabase } = useSupabaseSession();
+  const router = useRouter(); 
 
   if (status === "loading") {
     return (
@@ -23,7 +24,13 @@ export default function SettingsPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your settings.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (
@@ -138,7 +145,7 @@ export default function SettingsPage() {
                     Sign out of your account on this device
                   </p>
                 </div>
-                <Button onClick={() => signOut()} variant="outline" size="lg" className="whitespace-nowrap">
+                <Button onClick={() => supabase.auth.signOut()} variant="outline" size="lg" className="whitespace-nowrap">
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </Button>

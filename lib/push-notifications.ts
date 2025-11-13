@@ -71,12 +71,12 @@ export async function sendPushNotification(
 }
 
 export async function sendNotificationToUser(
-  userId: string,
+  zesty_id: string,
   payload: PushNotificationPayload
 ) {
   const subscriptions = await prisma.pushSubscription.findMany({
     where: {
-      userId,
+      zesty_id: zesty_id,
       active: true,
     },
   });

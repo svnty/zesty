@@ -1,31 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type"); // 'sent' or 'received'
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
     // Fetch offers based on type
     let offers;
-    
+
     if (type === "sent") {
       // Offers sent by this user (as client)
       offers = await withRetry(() =>
         prisma.privateOffer.findMany({
-          where: { clientId: userId },
+          where: { clientId: user?.zesty_id },
           include: {
             worker: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 bio: true,
                 verified: true,
@@ -43,11 +44,11 @@ export async function GET(req: NextRequest) {
       // Offers received by this user (as worker)
       offers = await withRetry(() =>
         prisma.privateOffer.findMany({
-          where: { workerId: userId },
+          where: { workerId: user?.zesty_id },
           include: {
             client: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 bio: true,
                 verified: true,
@@ -66,11 +67,11 @@ export async function GET(req: NextRequest) {
       const [sent, received] = await Promise.all([
         withRetry(() =>
           prisma.privateOffer.findMany({
-            where: { clientId: userId },
+            where: { clientId: user?.zesty_id },
             include: {
               worker: {
                 select: {
-                  id: true,
+                  zesty_id: true,
                   slug: true,
                   bio: true,
                   verified: true,
@@ -86,11 +87,11 @@ export async function GET(req: NextRequest) {
         ),
         withRetry(() =>
           prisma.privateOffer.findMany({
-            where: { workerId: userId },
+            where: { workerId: user?.zesty_id },
             include: {
               client: {
                 select: {
-                  id: true,
+                  zesty_id: true,
                   slug: true,
                   bio: true,
                   verified: true,

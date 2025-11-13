@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { serverSupabase } from '@/lib/supabase/server';
 
 // Get comments for content
 export async function GET(req: NextRequest) {
@@ -22,11 +22,7 @@ export async function GET(req: NextRequest) {
       include: {
         user: {
           select: {
-            name: false,
-            email: false,
-            image: false,
-
-            id: true,
+            zesty_id: true,
             slug: true,
             verified: true,
           },
@@ -35,7 +31,6 @@ export async function GET(req: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-      take: 100,
     }));
 
     return NextResponse.json({
@@ -76,26 +71,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get current user
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in vip/comment route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
+      where: { supabaseId: (session?.user as any)?.id },
     }));
-
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -116,16 +97,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Create comment
-    const comment = await withRetry(() =>   prisma.vIPComment.create({
+    const comment = await withRetry(() => prisma.vIPComment.create({
       data: {
-        userId: user.id,
+        zesty_id: user.zesty_id,
         contentId: contentId,
         text: text.trim(),
       },
       include: {
         user: {
           select: {
-            id: true,
+            zesty_id: true,
             title: true,
             slug: true,
             verified: true,

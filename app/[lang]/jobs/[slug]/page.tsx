@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Briefcase,
   MapPin,
   Users,
@@ -23,6 +22,8 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import { useSupabaseSession } from "@/lib/supabase/client";
+import { toastManager } from "@/components/ui/toast";
 
 interface JobData {
   id: string;
@@ -84,7 +85,7 @@ interface StudioReview {
 export default function JobPage() {
   const { slug, lang } = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [job, setJob] = useState<JobData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
@@ -99,12 +100,18 @@ export default function JobPage() {
   const fetchJobData = async () => {
     try {
       const response = await fetch(`/api/jobs/${slug}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setJob(data);
       } else if (response.status === 404) {
+        toastManager.add({
+          title: "Job Not Found",
+          description: "This job doesn't exist or has been removed.",
+          type: "warning",
+        });
         router.push(`/${lang}/jobs`);
+        return;
       }
     } catch (error) {
       console.error('Error fetching job:', error);
@@ -114,8 +121,13 @@ export default function JobPage() {
   };
 
   const handleApply = async () => {
-    if (!session) {
-      router.push(`/${lang}/auth/signin`);
+    if (status === "unauthenticated") {
+      toastManager.add({
+        type: 'error',
+        title: 'Not Logged In',
+        description: "Please log in to apply for jobs.",
+      });
+      router.push(`/${lang}/jobs`);
       return;
     }
 
@@ -191,11 +203,11 @@ export default function JobPage() {
 
   const startDate = new Date(job.startDate);
   const endDate = job.endDate ? new Date(job.endDate) : null;
-  const duration = job.lengthDays 
+  const duration = job.lengthDays
     ? `${job.lengthDays} day${job.lengthDays > 1 ? 's' : ''}`
     : job.lengthHours
-    ? `${job.lengthHours} hour${job.lengthHours > 1 ? 's' : ''}`
-    : 'TBD';
+      ? `${job.lengthHours} hour${job.lengthHours > 1 ? 's' : ''}`
+      : 'TBD';
 
   const hasApplied = !!job.userApplication;
   const applicationStatus = job.userApplication?.status;
@@ -242,7 +254,7 @@ export default function JobPage() {
                 <JobStatusBadge status={job.status} />
               </div>
               <h1 className="text-3xl font-bold mb-3">{job.title}</h1>
-              
+
               {/* Studio */}
               <a target="_blank" href={`${job.studio.website || '#'}`} className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity">
                 {job.studio.logo && (
@@ -284,12 +296,11 @@ export default function JobPage() {
 
             {/* Application Status */}
             {hasApplied && (
-              <div className={`border rounded-xl p-4 ${
-                applicationStatus === 'ACCEPTED' ? 'bg-green-50 border-green-200' :
-                applicationStatus === 'REJECTED' ? 'bg-red-50 border-red-200' :
-                applicationStatus === 'WITHDRAWN' ? 'bg-gray-50 border-gray-200' :
-                'bg-blue-50 border-blue-200'
-              }`}>
+              <div className={`border rounded-xl p-4 ${applicationStatus === 'ACCEPTED' ? 'bg-green-50 border-green-200' :
+                  applicationStatus === 'REJECTED' ? 'bg-red-50 border-red-200' :
+                    applicationStatus === 'WITHDRAWN' ? 'bg-gray-50 border-gray-200' :
+                      'bg-blue-50 border-blue-200'
+                }`}>
                 <div className="flex items-start gap-3">
                   {applicationStatus === 'ACCEPTED' ? (
                     <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
@@ -301,20 +312,20 @@ export default function JobPage() {
                   <div className="flex-1">
                     <p className="font-semibold mb-1">
                       {applicationStatus === 'ACCEPTED' ? 'Application Accepted!' :
-                       applicationStatus === 'REJECTED' ? 'Application Not Successful' :
-                       applicationStatus === 'WITHDRAWN' ? 'Application Withdrawn' :
-                       'Application Submitted'}
+                        applicationStatus === 'REJECTED' ? 'Application Not Successful' :
+                          applicationStatus === 'WITHDRAWN' ? 'Application Withdrawn' :
+                            'Application Submitted'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {applicationStatus === 'ACCEPTED' ? 'The studio has accepted your application. They should contact you soon.' :
-                       applicationStatus === 'REJECTED' ? 'Unfortunately, the studio has decided to move forward with other candidates.' :
-                       applicationStatus === 'WITHDRAWN' ? 'You have withdrawn your application for this job.' :
-                       'Your application is being reviewed by the studio.'}
+                        applicationStatus === 'REJECTED' ? 'Unfortunately, the studio has decided to move forward with other candidates.' :
+                          applicationStatus === 'WITHDRAWN' ? 'You have withdrawn your application for this job.' :
+                            'Your application is being reviewed by the studio.'}
                     </p>
                     {applicationStatus === 'PENDING' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="mt-2"
                         onClick={handleWithdraw}
                       >
@@ -328,7 +339,7 @@ export default function JobPage() {
 
             {/* Application Form */}
             {!hasApplied && job.status === 'OPEN' && !showApplicationForm && (
-              <Button 
+              <Button
                 onClick={() => setShowApplicationForm(true)}
                 size="lg"
                 className="w-full"
@@ -353,7 +364,7 @@ export default function JobPage() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button 
+                  <Button
                     onClick={handleApply}
                     disabled={isApplying}
                     className="flex-1"
@@ -370,7 +381,7 @@ export default function JobPage() {
                       </>
                     )}
                   </Button>
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={() => {
                       setShowApplicationForm(false);
@@ -419,11 +430,10 @@ export default function JobPage() {
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
-                              className={`w-4 h-4 ${
-                                i < review.rating
+                              className={`w-4 h-4 ${i < review.rating
                                   ? 'fill-yellow-500 text-yellow-500'
                                   : 'text-gray-300'
-                              }`}
+                                }`}
                             />
                           ))}
                         </div>
@@ -457,7 +467,7 @@ export default function JobPage() {
             {/* Job Details */}
             <div className="border rounded-xl p-4 bg-card space-y-4">
               <h3 className="font-semibold">Job Details</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <DollarSign className="w-5 h-5 text-primary mt-0.5 shrink-0" />
@@ -482,9 +492,9 @@ export default function JobPage() {
                   <div className="text-sm">
                     <p className="font-medium">Start Date</p>
                     <p className="text-muted-foreground">
-                      {startDate.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
+                      {startDate.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
                         day: 'numeric',
                         year: 'numeric'
                       })}
@@ -584,6 +594,6 @@ function JobStatusBadge({ status }: { status: string }) {
     FILLED: <Badge className="bg-blue-600 hover:bg-blue-700">Filled</Badge>,
     CANCELLED: <Badge className="bg-red-600 hover:bg-red-700">Cancelled</Badge>,
   };
-  
+
   return badges[status] || null;
 }

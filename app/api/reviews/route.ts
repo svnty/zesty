@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
     const { offerId, rating, comment } = body;
 
@@ -27,6 +20,16 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: (session?.user as any)?.id },
+    }));
 
     // Get the offer and verify the user is the client
     const offer = await withRetry(() =>
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
-    if (offer.clientId !== userId) {
+    if (offer.clientId !== user?.zesty_id) {
       return NextResponse.json(
         { error: "Only the client can leave a review" },
         { status: 403 }
@@ -64,7 +67,7 @@ export async function POST(req: NextRequest) {
       prisma.review.findFirst({
         where: {
           offerId: offerId,
-          reviewerId: userId,
+          reviewerId: user?.zesty_id,
         },
       })
     );
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
     const review = await withRetry(() =>
       prisma.review.create({
         data: {
-          reviewerId: userId,
+          reviewerId: user.zesty_id,
           revieweeId: offer.workerId,
           offerId: offerId,
           rating: Number.parseInt(rating),
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
         include: {
           reviewer: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               verified: true,
               images: {

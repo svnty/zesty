@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import FilterComponent, { type FilterData } from '@/app/[lang]/escorts/(client-renders)/filter';
 import { useParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BodyType, DaysAvailable, PrivateAdCustomerCategory, PrivateAdExtraType, PrivateAdServiceCategory, Race } from "@prisma/client";
+import { BodyType, PrivateAdDaysAvailable, PrivateAdCustomerCategory, PrivateAdExtraType, PrivateAdServiceCategory, Race } from "@prisma/client";
 import { type LocationSuggestion } from '@/lib/geocoding';
 
 export interface EscortProfileData {
@@ -27,7 +27,7 @@ export interface EscortProfileData {
     acceptsRace: Race[];
     acceptsBodyType: BodyType[];
     acceptsAgeRange: number[];
-    daysAvailable: DaysAvailable[];
+    daysAvailable: PrivateAdDaysAvailable[];
     services: ({
       options: {
         id: string;
@@ -294,6 +294,7 @@ export default function Page() {
     // Store the profile data in sessionStorage for quick access
     sessionStorage.setItem(`profile_${profile.slug}`, JSON.stringify(profile));
     router.push(`/${lang}/escorts/${profile.slug}`);
+    return;
   };
 
   // Only compute rotated images if we have a featured profile

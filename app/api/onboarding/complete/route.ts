@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
     if (!session?.user) {
       return NextResponse.json(
@@ -20,8 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = (session.user as any).id;
+    const userId = session.user.id;
 
+    // form
     const formData = await request.formData();
     const dob = formData.get("dob") as string;
     const slug = formData.get("slug") as string;
@@ -31,7 +26,6 @@ export async function POST(request: NextRequest) {
     const bodyType = formData.get("bodyType") as string;
     const suburb = formData.get("suburb") as string;
 
-    // Validate required fields
     if (!dob || !slug || !image || !ethnicity || !gender || !bodyType || !suburb) {
       return NextResponse.json(
         { message: "Missing required fields" },
@@ -77,7 +71,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    if (existingUser && existingUser.id !== userId) {
+    if (existingUser && existingUser.supabaseId !== userId) {
       return NextResponse.json(
         { message: "Username is already taken" },
         { status: 400 }
@@ -90,7 +84,7 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      const { data, error } = await supabase.storage
+      const { data, error } = await supaBase.storage
         .from("profile-images")
         .upload(fileName, buffer, {
           contentType: image.type,
@@ -106,7 +100,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Get public URL
-      const { data: publicUrlData } = supabase.storage
+      const { data: publicUrlData } = supaBase.storage
         .from("profile-images")
         .getPublicUrl(data.path);
 
@@ -126,7 +120,7 @@ export async function POST(request: NextRequest) {
             altText: `${slug}'s profile photo`,
             default: true,
             NSFW: false,
-            userId: userId,
+            zesty_id: existingUser?.zesty_id,
           },
         })
       );
@@ -135,7 +129,7 @@ export async function POST(request: NextRequest) {
     // Update user profile (DO NOT touch user.image)
     await withRetry(() =>
       prisma.user.update({
-        where: { id: userId },
+        where: { zesty_id: existingUser?.zesty_id },
         data: {
           dob: dobDate,
           slug: slug.toLowerCase(),

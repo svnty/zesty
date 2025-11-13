@@ -1,24 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/follow route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { channelId } = await request.json();
 
     if (!channelId) {
@@ -28,10 +13,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
     // Get user
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-      select: { id: true },
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
     }));
 
     if (!user) {
@@ -44,8 +32,8 @@ export async function POST(request: NextRequest) {
     // Check if already following
     const existingFollow = await withRetry(() => prisma.liveStreamFollower.findUnique({
       where: {
-        userId_channelId: {
-          userId: user.id,
+        zesty_id_channelId: {
+          zesty_id: user.zesty_id,
           channelId: channelId,
         },
       },
@@ -65,7 +53,7 @@ export async function POST(request: NextRequest) {
       // Follow
       await withRetry(() => prisma.liveStreamFollower.create({
         data: {
-          userId: user.id,
+          zesty_id: user.zesty_id,
           channelId: channelId,
         },
       }));

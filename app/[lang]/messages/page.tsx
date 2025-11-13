@@ -1,19 +1,27 @@
 "use client";
 
-import { ChatList } from '@/components/chat-list';
-import { useSession } from 'next-auth/react';
-import { redirect, useParams } from 'next/navigation';
+import { ChatList } from '@/app/[lang]/messages/(client-renders)/chat-list';
+import { toastManager } from '@/components/ui/toast';
+import { useSupabaseSession } from '@/lib/supabase/client';
+import { redirect, useParams, useRouter } from 'next/navigation';
 
 export default function InboxPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const { lang } = useParams();
+  const router = useRouter();
 
   if (status === 'loading') {
     return <div className='container p-4 text-center justify-center mx-auto'>Loading...</div>;
   }
 
   if (status === 'unauthenticated') {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your messages.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (

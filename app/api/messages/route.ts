@@ -1,30 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 // Get all chats for current user
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     const userId = (session?.user as any)?.id;
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const chats = await prisma.chat.findMany({
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: userId },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const chats = await withRetry(() => prisma.chat.findMany({
       where: {
         activeUsers: {
           some: {
-            id: userId,
+            zesty_id: user.zesty_id,
           },
         },
       },
       include: {
         activeUsers: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             images: {
               where: { default: true },
@@ -40,7 +49,7 @@ export async function GET(req: NextRequest) {
           include: {
             sender: {
               select: {
-                id: true,
+                zesty_id: true,
                 slug: true,
                 images: {
                   where: { default: true },
@@ -54,11 +63,11 @@ export async function GET(req: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-    });
+    }));
 
     // Format the chats to include the other user and last message
     const formattedChats = chats.map((chat) => {
-      const otherUser = chat.activeUsers.find((user) => user.id !== userId);
+      const otherUser = chat.activeUsers.find((chatUser) => chatUser.zesty_id !== user.zesty_id);
       const lastMessage = chat.messages[0] || null;
 
       return {

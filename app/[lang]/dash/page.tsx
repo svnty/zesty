@@ -1,6 +1,6 @@
 "use client";
 
-import { redirect, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   Camera,
@@ -16,9 +16,10 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
-import { convertSegmentPathToStaticExportFilename } from "next/dist/shared/lib/segment-cache/segment-value-encoding";
+import { toastManager } from "@/components/ui/toast";
+import { useRouter } from "next/navigation";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 const dashboardOptions = [
   {
@@ -67,7 +68,8 @@ const dashboardOptions = [
 
 export default function DashboardPage() {
   const { lang } = useParams<{ lang: string }>();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
+  const router = useRouter();
 
   if (status === "loading") {
     return (
@@ -78,7 +80,13 @@ export default function DashboardPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your dashboard.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (

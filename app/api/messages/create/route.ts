@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getOrCreateChat } from "@/lib/chat";
+import { getOrCreateChat } from "@/lib/chat/chat";
+import { serverSupabase } from "@/lib/supabase/server";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // Create or get existing chat with another user
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const userSlug = (session?.user as any)?.slug;
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session?.user?.id },
+      select: { slug: true },
+    }));
+
+    const userSlug = user?.slug;
     
     if (!userSlug) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

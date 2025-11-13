@@ -10,13 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 const SERVICE_CATEGORIES = [
+  { value: "MODELLING", label: "Modelling" },
   { value: "VIDEO_CHAT", label: "Video Chat" },
   { value: "MEET_AND_GREET", label: "Meet & Greet" },
   { value: "MASSAGE", label: "Massage" },
@@ -69,7 +68,7 @@ interface Extra {
 export default function CreateEscortAdPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
@@ -230,6 +229,7 @@ export default function CreateEscortAdPage() {
 
       if (response.ok) {
         router.push(`/${lang}/dash/escorts`);
+        return;
       } else {
         alert("Failed to save ad. Please try again.");
       }

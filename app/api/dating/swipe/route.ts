@@ -1,33 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
-    let sessionUser = null;
-    try {
-      sessionUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in dating/swipe route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!sessionUser?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get full user from database
-    const user = await withRetry(() =>
-      prisma.user.findUnique({
-        where: { email: sessionUser.email! },
-        select: { id: true },
-      })
-    );
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
     const { profileId, direction, superLike = false } = await request.json();
 
     if (!profileId || !direction) {
@@ -37,10 +13,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
     // Get user's dating page
     const userDatingPage = await withRetry(() =>
       prisma.datingPage.findUnique({
-        where: { userId: user.id, active: true },
+        where: { zesty_id: user.zesty_id, active: true },
         select: { id: true },
       })
     );
@@ -102,7 +93,7 @@ export async function POST(request: Request) {
           const otherDatingPage = await withRetry(() =>
             prisma.datingPage.findUnique({
               where: { id: profileId },
-              select: { userId: true },
+              select: { zesty_id: true },
             })
           );
 
@@ -118,7 +109,7 @@ export async function POST(request: Request) {
             prisma.chat.create({
               data: {
                 activeUsers: {
-                  connect: [{ id: user.id }, { id: otherDatingPage.userId }],
+                  connect: [{ zesty_id: user.zesty_id }, { zesty_id: otherDatingPage.zesty_id }],
                 },
               },
             })
@@ -137,7 +128,7 @@ export async function POST(request: Request) {
                   include: {
                     user: {
                       select: {
-                        id: true,
+                        zesty_id: true,
                         slug: true,
                         title: true,
                         images: {
@@ -160,13 +151,13 @@ export async function POST(request: Request) {
       swipeId: swipe.id,
       match: match
         ? {
-            id: match.id,
-            profile: {
-              id: match.user2.userId,
-              title: match.user2.user.title || match.user2.user.slug,
-              image: match.user2.user.images[0]?.url || null,
-            },
-          }
+          id: match.id,
+          profile: {
+            id: match.user2.zesty_id,
+            title: match.user2.user.title || match.user2.user.slug,
+            image: match.user2.user.images[0]?.url || null,
+          },
+        }
         : null,
     });
   } catch (error) {

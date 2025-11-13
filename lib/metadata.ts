@@ -12,8 +12,8 @@ export const siteConfig = {
   title: "Zesty - Adult Dating, Escorts & Entertainment Services",
   description:
     "Connect with verified escorts, dating partners, and adult entertainment. Premium adult services directory featuring live streams, events, VIP experiences, and professional opportunities.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://zesty.com",
-  ogImage: "/og-image.jpg",
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://zesty.hot",
+  ogImage: "/og-image.png",
   keywords: [
     "adult dating",
     "escort services",
@@ -35,8 +35,8 @@ export const siteConfig = {
   type: "website",
   // Social media handles (update with your actual handles)
   social: {
-    twitter: "@zesty",
-    instagram: "@zesty",
+    twitter: process.env.TWITTER_HANDLE || "@zesty_hot",
+    instagram: process.env.INSTAGRAM_HANDLE || "@zesty_hot",
   },
 };
 
@@ -121,12 +121,12 @@ export const defaultMetadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: siteConfig.name,
-    startupImage: [
-      {
-        url: "/splash-screen.png",
-        media: "(device-width: 375px) and (device-height: 812px)",
-      },
-    ],
+    // startupImage: [
+    //   {
+    //     url: "/splash-screen.png",
+    //     media: "(device-width: 375px) and (device-height: 812px)",
+    //   },
+    // ],
   },
   // Other metadata
   other: {

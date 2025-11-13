@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
-    const userId = (session.user as { id: string }).id;
-
-    // If profile already exists, return it
     const existing = await withRetry(() =>
-      prisma.datingPage.findUnique({ where: { userId } })
+      prisma.datingPage.findUnique({ where: { zesty_id: user?.zesty_id } })
     );
+
     if (existing) {
       return NextResponse.json({ profile: existing });
     }
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
     const created = await withRetry(() =>
       prisma.datingPage.create({
         data: {
-          user: { connect: { id: userId } },
+          user: { connect: { zesty_id: user?.zesty_id } },
           active: true,
           lookingFor: [],
           ageRangeMin: 18,

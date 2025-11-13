@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
-import { deleteRoom } from '@/lib/livekit';
+import { deleteRoom } from '@/lib/live/livekit';
+import { serverSupabase } from '@/lib/supabase/server';
 
 // End the current live stream session
 export async function POST(request: NextRequest) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in live/end-stream route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     // Get user with their current live stream
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
+      where: { supabaseId: session.user?.id },
       select: { 
-        id: true,
+        zesty_id: true,
         liveStreamPage: {
           select: {
             id: true,

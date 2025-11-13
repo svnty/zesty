@@ -13,7 +13,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{  slug:
       prisma.user.findUnique({
         where: { slug },
         select: {
-          id: true,
+          zesty_id: true,
           slug: true,
           bio: true,
           location: true,

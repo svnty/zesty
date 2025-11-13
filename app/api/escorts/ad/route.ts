@@ -1,24 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
 import {
   PrivateAdServiceCategory,
-  DaysAvailable,
+  PrivateAdDaysAvailable,
   PrivateAdExtraType,
   Race,
   BodyType,
   PrivateAdCustomerCategory,
 } from "@prisma/client";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
 
     const {
@@ -52,10 +45,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
     // Check if user already has an ad
     const existingAd = await withRetry(() =>
       prisma.privateAd.findUnique({
-        where: { workerId: userId },
+        where: { workerId: user.zesty_id },
         select: { id: true },
       })
     );
@@ -140,7 +148,7 @@ export async function POST(req: NextRequest) {
     const newAd = await withRetry(() =>
       prisma.privateAd.create({
         data: {
-          workerId: userId,
+          workerId: user.zesty_id,
           title,
           description,
           active: active ?? true,
@@ -214,13 +222,6 @@ export async function POST(req: NextRequest) {
 // PATCH to toggle active status
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
     const { active } = body;
 
@@ -231,9 +232,24 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
     const ad = await withRetry(() =>
       prisma.privateAd.update({
-        where: { workerId: userId },
+        where: { workerId: user.zesty_id },
         data: { active },
         include: {
           services: {

@@ -1,32 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
 import { prisma, withRetry } from '@/lib/prisma';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
-    let sessionUser = null;
-    try {
-      sessionUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in dating/discover route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
     
-    if (!sessionUser?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get full user from database
-    const user = await withRetry(() =>
-      prisma.user.findUnique({
-        where: { email: sessionUser.email! },
-        select: {
-          id: true,
-          location: true,
-          dob: true,
-        },
-      })
-    );
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true, location: true, dob: true },
+    }));
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -37,7 +21,7 @@ export async function POST(request: Request) {
     // Get user's dating page
     const datingPage = await withRetry(() =>
       prisma.datingPage.findUnique({
-        where: { userId: user.id },
+        where: { zesty_id: user.zesty_id },
       })
     );
 
@@ -61,7 +45,7 @@ export async function POST(request: Request) {
         notIn: swipedIds, // Exclude already swiped profiles by DatingPage ID
       },
       userId: {
-        not: user.id, // Exclude self
+        not: user.zesty_id, // Exclude self
       },
       active: true,
     };
@@ -112,7 +96,7 @@ export async function POST(request: Request) {
         include: {
           user: {
             select: {
-              id: true,
+              zesty_id: true,
               title: true,
               slug: true,
               bio: true,
@@ -153,7 +137,7 @@ export async function POST(request: Request) {
     // Map to response format
     const formattedProfiles = filteredProfiles.map((profile) => ({
       id: profile.id,
-      userId: profile.userId,
+      userId: profile.zesty_id,
       title: profile.user.title || profile.user.slug || 'Anonymous',
       bio: profile.user.bio || '',
       lookingFor: profile.lookingFor,

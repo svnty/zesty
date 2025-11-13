@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         isFree: true,
         user: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             title: true,
             dob: true,

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         include: {
           user: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               suburb: true,
               location: true,
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         include: {
           user: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               dob: true,
               suburb: true,
@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
         include: {
           user: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               suburb: true,
               location: true,

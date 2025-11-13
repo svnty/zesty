@@ -50,6 +50,7 @@ export function StartChatButton({
       
       // Navigate to the chat
       router.push(`/${lang}/messages/${chat.id}`);
+      return;
     } catch (error) {
       console.error('Error starting chat:', error);
       alert('Failed to start chat. Please try again.');

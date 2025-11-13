@@ -1,5 +1,5 @@
 
-import { ChatWindow } from '@/components/chat-window';
+import { ChatWindow } from '@/app/[lang]/messages/[slug]/(client-renders)/chat-window';
 
 interface MessagePageProps {
   params: Promise<{

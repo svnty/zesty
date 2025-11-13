@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface PrivateAd {
   id: string;
@@ -25,7 +26,7 @@ interface PrivateAd {
 export default function EscortsManagementPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [ads, setAds] = useState<PrivateAd[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,7 +83,13 @@ export default function EscortsManagementPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your escort profile.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (
@@ -168,7 +175,7 @@ export default function EscortsManagementPage() {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Link href={`/${lang}/escorts/${session?.user?.slug || ''}`}>
+                      <Link href={`/${lang}/escorts/${user?.slug || ''}`}>
                         <Button variant="outline" size="sm">
                           {ad.active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </Button>

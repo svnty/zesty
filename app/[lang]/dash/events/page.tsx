@@ -7,8 +7,9 @@ import { ArrowLeft, Calendar, Eye, Plus, Users, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface Event {
   id: string;
@@ -23,7 +24,7 @@ interface Event {
 export default function EventsManagementPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
 
@@ -58,7 +59,13 @@ export default function EventsManagementPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your events page.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   const upcomingEvents = events.filter(e => new Date(e.eventDate) >= new Date());

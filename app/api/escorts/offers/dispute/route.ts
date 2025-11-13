@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
     const { offerId, reason } = body;
 
@@ -20,6 +13,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Get the offer and verify the user is the client
     const offer = await withRetry(() =>
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
-    if (offer.clientId !== userId) {
+    if (offer.clientId !== user?.zesty_id) {
       return NextResponse.json(
         { error: "Only the client can raise a dispute" },
         { status: 403 }
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
         include: {
           client: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
           },
           worker: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,

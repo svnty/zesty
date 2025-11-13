@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
     }
 
-    const userId = (session.user as { id: string }).id;
-
     const profile = await withRetry(() =>
-      prisma.datingPage.findUnique({ where: { userId } })
+      prisma.datingPage.findUnique({ where: { zesty_id: user.zesty_id } })
     );
 
     if (!profile) {

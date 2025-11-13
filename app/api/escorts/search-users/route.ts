@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
           }
         },
         select: {
-          id: true,
+          zesty_id: true,
           slug: true,
           images: {
             where: { default: true },
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     );
 
     const formattedUsers = users.map((user) => ({
-      value: user.id,
+      value: user.zesty_id,
       label: user.slug || 'Unknown',
       slug: user.slug || '',
       image: user.images?.[0]?.url || null,

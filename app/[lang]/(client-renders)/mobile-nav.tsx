@@ -3,15 +3,12 @@
 import { Calendar, Camera, Clapperboard, Flame, Mail, Search, TvMinimalPlay } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
-import { UnreadMessagesBadge } from "@/components/unread-messages-badge";
-import { useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 
 export default function MobileNav() {
   const { lang } = useParams();
   const pathname = usePathname();
   const [clickedPath, setClickedPath] = useState<string | null>(null);
-  const { data: session } = useSession();
 
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIOS, setIsIOS] = useState(false);

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           organizerId: true,
           organizer: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               title: true,
               verified: true,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         organizerId: true,
         organizer: {
           select: {
-            id: true,
+            zesty_id: true,
             slug: true,
             title: true,
             verified: true,

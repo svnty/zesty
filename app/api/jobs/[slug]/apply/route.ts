@@ -1,37 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/session';
+import { serverSupabase } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in jobs/apply route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { slug } = await params;
     const body = await request.json();
     const { coverLetter } = body;
 
-    // Get user from database
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-      select: { id: true },
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
     }));
-
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -86,7 +73,7 @@ export async function POST(
       where: {
         jobId_applicantId: {
           jobId: job.id,
-          applicantId: user.id,
+          applicantId: user.zesty_id,
         },
       },
     }));
@@ -102,7 +89,7 @@ export async function POST(
     const application = await withRetry(() => prisma.jobApplication.create({
       data: {
         jobId: job.id,
-        applicantId: user.id,
+        applicantId: user.zesty_id,
         coverLetter,
         status: 'PENDING',
       },
@@ -130,27 +117,14 @@ export async function DELETE(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    let currentUser = null;
-    try {
-      currentUser = await getCurrentUser();
-    } catch (err) {
-      console.error('getCurrentUser failed in jobs/apply DELETE route:', err);
-      return NextResponse.json({ error: 'Unauthorized - authentication error' }, { status: 401 });
-    }
-    
-    if (!currentUser?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { slug } = await params;
 
-    // Get user from database
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+    
     const user = await withRetry(() => prisma.user.findUnique({
-      where: { email: currentUser.email },
-      select: { id: true },
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
     }));
 
     if (!user) {
@@ -177,7 +151,7 @@ export async function DELETE(
     await withRetry(() => prisma.jobApplication.updateMany({
       where: {
         jobId: job.id,
-        applicantId: user.id,
+        applicantId: user.zesty_id,
         status: 'PENDING',
       },
       data: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { Gender, BodyType, Race, DaysAvailable } from '@prisma/client';
+import { Gender, BodyType, Race, PrivateAdDaysAvailable } from '@prisma/client';
 import { calculateDistance } from '@/lib/calculate-distance';
 import { calculateAge } from '@/lib/calculate-age';
 
@@ -36,7 +36,7 @@ type UserWithDistance = {
   distance: number;
   age: number | null;
   lastActive: Date | null;
-  daysAvailable: DaysAvailable[] | null;
+  daysAvailable: PrivateAdDaysAvailable[] | null;
   averageRating: number;
   vip: boolean;
   liveStreamPage: boolean;
@@ -124,10 +124,7 @@ export async function POST(request: NextRequest) {
         },
         worker: {
           select: {
-            name: false,
-            image: false,
-
-            id: true,
+            zesty_id: true,
             slug: true,
             location: true,
             suburb: true,
@@ -153,7 +150,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // Get average ratings for all workers in one query
-    const workerIds = ads.map(ad => ad.worker.id);
+    const workerIds = ads.map(ad => ad.worker.zesty_id);
     const ratingsData = await withRetry(() => prisma.review.groupBy({
       by: ['revieweeId'],
       where: {
@@ -190,7 +187,7 @@ export async function POST(request: NextRequest) {
           distance = calculateDistance(clientLatitude, clientLongitude, workerLat, workerLong);
         }
         const age = user.dob ? calculateAge(user.dob) : null;
-        const ratings = ratingsMap.get(user.id) ?? { averageRating: 0 };
+        const ratings = ratingsMap.get(user.zesty_id) ?? { averageRating: 0 };
 
         // Get price range from all services
         let minPrice = null;
@@ -202,7 +199,7 @@ export async function POST(request: NextRequest) {
         }
 
         return {
-          id: user.id,
+          id: user.zesty_id,
           ad: ad,
           slug: user.slug,
           location: user.location,

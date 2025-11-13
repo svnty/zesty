@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
 import { prisma, withRetry } from "@/lib/prisma";
 import { sendOfferConfirmedNotification, sendNewMessageNotification } from "@/lib/push-notifications";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = (session.user as { id: string }).id;
     const body = await req.json();
     const { offerId } = body;
 
@@ -21,6 +14,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const user = await withRetry(() => prisma.user.findUnique({
+      where: { supabaseId: session.user?.id },
+      select: { zesty_id: true },
+    }));
 
     // Get the offer and verify ownership
     const offer = await withRetry(() =>
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Offer not found" }, { status: 404 });
     }
 
-    if (offer.workerId !== userId) {
+    if (offer.workerId !== user?.zesty_id) {
       return NextResponse.json(
         { error: "Only the worker can mark an offer as complete" },
         { status: 403 }
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
         include: {
           client: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
           },
           worker: {
             select: {
-              id: true,
+              zesty_id: true,
               slug: true,
               bio: true,
               verified: true,
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         prisma.chatMessage.create({
           data: {
             content: `🎉 Service (${offer.service.replace(/_/g, " ")}) marked as complete! Payment will be released in 48 hours if no dispute is raised.`,
-            senderId: userId,
+            senderId: user.zesty_id,
             chatId: offer.chatId!,
           },
         })

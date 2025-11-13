@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { LiveStreamViewer, LiveStreamBroadcaster } from '../(client-renders)/livekit-components';
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { profile } from "console";
-import { useSession } from "next-auth/react";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 interface LiveStreamChannelData {
   id: string;
@@ -75,7 +75,7 @@ interface LiveStreamChannelData {
 export default function LiveStreamPage() {
   const { slug, lang } = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [channel, setChannel] = useState<LiveStreamChannelData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingStream, setIsTogglingStream] = useState(false);
@@ -104,7 +104,7 @@ export default function LiveStreamPage() {
           setChannel({
             ...channelData,
             currentStream: channelData.streams?.[0] || null,
-            isOwner: channelData.user.slug === session?.user?.slug,
+            isOwner: channelData.user.slug === user?.slug,
             followerCount: channelData._count?.followers || 0,
             isFollowing: false, // TODO: get from API
             pastStreams: [], // Will be loaded separately if needed

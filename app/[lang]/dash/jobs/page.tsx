@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "@/components/ui/menu";
-import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useSupabaseSession } from "@/lib/supabase/client";
 
 export default function JobsManagementPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, user } = useSupabaseSession();
   const [loading, setLoading] = useState(true);
   const [studios, setStudios] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -37,7 +38,13 @@ export default function JobsManagementPage() {
   }
 
   if (status === "unauthenticated") {
-    redirect(`/${lang}`);
+    toastManager.add({
+      title: "Authentication Required",
+      description: "Please log in to access your studio settings.",
+      type: "warning",
+    });
+    router.push(`/${lang}`);
+    return;
   }
 
   return (
