@@ -378,10 +378,12 @@ export default function Page() {
                   <p className="text-muted-foreground mb-6">
                     Be the first to create one!
                   </p>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Event
-                  </Button>
+                  <Link href={`/${lang}/dash/events/setup`}>
+                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Event
+                    </Button>
+                  </Link>
                 </div>
               ) : (
                 <div className="max-w-3xl mx-auto space-y-5">

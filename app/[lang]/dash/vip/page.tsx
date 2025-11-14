@@ -3,18 +3,20 @@
 import { redirect, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, Eye, DollarSign, Users, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Camera, Eye, DollarSign, Users, Image as ImageIcon, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useSupabaseSession } from "@/lib/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 interface VIPPage {
   id: string;
   active: boolean;
   description: string;
+  bannerUrl: string | null;
   subscriptionPrice: number;
   isFree: boolean;
   subscriberCount: number;
@@ -27,16 +29,31 @@ export default function VIPManagementPage() {
   const { data: session, status, user } = useSupabaseSession();
   const [loading, setLoading] = useState(true);
   const [vipPage, setVipPage] = useState<VIPPage | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [isActivating, setIsActivating] = useState<boolean>(false);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchVIPPage();
-    } else {
-      setLoading(false);
     }
   }, [status]);
 
+  const createVIPPage = async () => {
+    setCreating(true);
+    try {
+      const res = await fetch('/api/vip/create', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to create channel');
+      const json = await res.json();
+      if (json?.page) setVipPage(json.page);
+    } catch (err) {
+      console.error('createChannel error:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const fetchVIPPage = async () => {
+    setLoading(true);
     try {
       const response = await fetch("/api/vip/my-page");
       if (response.ok) {
@@ -52,7 +69,8 @@ export default function VIPManagementPage() {
 
   const toggleActive = async () => {
     if (!vipPage) return;
-    
+    setIsActivating(true);
+
     try {
       const response = await fetch("/api/vip/my-page", {
         method: "PATCH",
@@ -65,6 +83,8 @@ export default function VIPManagementPage() {
       }
     } catch (error) {
       console.error("Error toggling page:", error);
+    } finally {
+      setIsActivating(false);
     }
   };
 
@@ -112,7 +132,7 @@ export default function VIPManagementPage() {
             {vipPage && (
               <Link href={`/${lang}/vip/${user?.slug || ''}`}>
                 <Button variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
+                  {vipPage.active ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
                   View Page
                 </Button>
               </Link>
@@ -130,12 +150,10 @@ export default function VIPManagementPage() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               You haven't created a VIP content page yet. Set up your exclusive subscription page to share premium content with your fans and earn money.
             </p>
-            <Link href={`/${lang}/vip/setup`}>
-              <Button size="lg">
-                <Camera className="w-4 h-4 mr-2" />
-                Create VIP Page
-              </Button>
-            </Link>
+            <Button size="lg" onClick={() => createVIPPage()} disabled={creating}>
+              <Camera className="w-4 h-4 mr-2" />
+              {creating ? 'Creating...' : 'Create VIP Page'}
+            </Button>
           </Card>
         ) : (
           <div className="space-y-6">
@@ -145,16 +163,17 @@ export default function VIPManagementPage() {
                 <div>
                   <h3 className="text-xl font-semibold mb-1">Page Status</h3>
                   <p className="text-muted-foreground text-sm">
-                    {vipPage.active 
-                      ? "Your page is live and accepting subscriptions" 
+                    {vipPage.active
+                      ? "Your page is live and accepting subscriptions"
                       : "Your page is currently hidden from public view"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">
-                    {vipPage.active ? "Active" : "Inactive"}
+                    {isActivating ? 'Updating...' : vipPage.active ? "Published" : "Draft"}
                   </span>
                   <Switch
+                    disabled={isActivating}
                     checked={vipPage.active}
                     onCheckedChange={toggleActive}
                   />
@@ -200,9 +219,10 @@ export default function VIPManagementPage() {
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link href={`/${lang}/vip/content/create`}>
-                <Card className="p-6 hover:border-orange-500 transition-colors cursor-pointer h-full">
+              <Link href={`/${lang}/dash/vip/content`}>
+                <Card className="relative p-6 hover:border-orange-500 transition-colors cursor-pointer h-full">
                   <Camera className="w-8 h-8 text-orange-500 mb-3" />
+                  <Badge className="absolute top-2 right-2 w-9 h-5 opacity-80 rounded-md">New</Badge>
                   <h3 className="text-lg font-semibold mb-2">Post New Content</h3>
                   <p className="text-muted-foreground text-sm">
                     Share photos, videos, or status updates with your subscribers
@@ -210,7 +230,7 @@ export default function VIPManagementPage() {
                 </Card>
               </Link>
 
-              <Link href={`/${lang}/vip/settings`}>
+              <Link href={`/${lang}/dash/vip/setup`}>
                 <Card className="p-6 hover:border-orange-500 transition-colors cursor-pointer h-full">
                   <DollarSign className="w-8 h-8 text-orange-500 mb-3" />
                   <h3 className="text-lg font-semibold mb-2">Pricing & Settings</h3>
@@ -227,9 +247,31 @@ export default function VIPManagementPage() {
               <p className="text-muted-foreground">
                 {vipPage.description || "No description set. Add a description to let potential subscribers know what exclusive content they'll get."}
               </p>
-              <Link href={`/${lang}/vip/settings`}>
+              <Link href={`/${lang}/dash/vip/setup`}>
                 <Button variant="link" className="mt-2 px-0">
                   Edit Description
+                </Button>
+              </Link>
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-xl font-semibold mb-3">Profile banner</h3>
+              {vipPage.bannerUrl ? (<img src={vipPage.bannerUrl} alt="VIP Page Banner" className="w-full h-40 object-cover rounded-md mb-4" />) : (
+                <div className="w-full h-48 md:h-72 lg:h-96 bg-linear-to-br from-purple-500 via-pink-500 to-rose-500 rounded-sm">
+                  <div className="w-full h-full flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles w-16 h-16 text-white/30" aria-hidden="true">
+                      <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path>
+                      <path d="M20 2v4"></path>
+                      <path d="M22 4h-4"></path>
+                      <circle cx="4" cy="20" r="2"></circle>
+                    </svg>
+                  </div>
+                  <div className="absolute inset-0 bg-linear-to-t from-background/80 via-background/5 to-transparent"></div>
+                </div>
+              )}
+              <Link href={`/${lang}/dash/vip/setup`}>
+                <Button variant="link" className="mt-2 px-0">
+                  Edit Banner
                 </Button>
               </Link>
             </Card>

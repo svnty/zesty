@@ -14,8 +14,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = session.user.id;
-
     // form
     const formData = await request.formData();
     const dob = formData.get("dob") as string;
@@ -71,7 +69,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    if (existingUser && existingUser.supabaseId !== userId) {
+    if (existingUser) {
       return NextResponse.json(
         { message: "Username is already taken" },
         { status: 400 }
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Upload image to Supabase Storage
     if (image) {
-      const fileName = `${userId}/${(new Date()).valueOf().toString()}`;
+      const fileName = `${session.user.id}/${(new Date()).valueOf().toString()}`;
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
@@ -120,7 +118,7 @@ export async function POST(request: NextRequest) {
             altText: `${slug}'s profile photo`,
             default: true,
             NSFW: false,
-            zesty_id: existingUser?.zesty_id,
+            user: { connect: { supabaseId: session.user.id } },
           },
         })
       );
@@ -129,7 +127,7 @@ export async function POST(request: NextRequest) {
     // Update user profile (DO NOT touch user.image)
     await withRetry(() =>
       prisma.user.update({
-        where: { zesty_id: existingUser?.zesty_id },
+        where: { supabaseId: session.user.id },
         data: {
           dob: dobDate,
           slug: slug.toLowerCase(),

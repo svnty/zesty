@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
 import { calculateAge } from "@/lib/calculate-age";
+import { serverSupabase } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +14,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supaBase = await serverSupabase();
+    const { data: session } = await supaBase.auth.getUser();
+
+    const includeFavourite = session.user ? {
+      where: {
+        supabaseId: session.user.id
+      }
+    } : false;
+
     const ad = await withRetry(() => prisma.privateAd.findFirst({
       where: {
         worker: {
@@ -21,6 +31,7 @@ export async function POST(request: NextRequest) {
         active: true,
       },
       select: {
+        followers: includeFavourite,
         id: true,
         title: true,
         description: true,
@@ -52,7 +63,7 @@ export async function POST(request: NextRequest) {
               select: { active: true }
             },
             liveStreamPage: {
-              select: { 
+              select: {
                 active: true,
                 streams: {
                   where: { isLive: true },

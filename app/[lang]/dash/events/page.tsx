@@ -86,7 +86,7 @@ export default function EventsManagementPage() {
               </Link>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                  <Calendar className="w-8 h-8 text-green-500" />
+                  <Calendar className="w-8 h-8 text-indigo-600" />
                   Events
                 </h1>
                 <p className="text-muted-foreground mt-1">
@@ -94,8 +94,8 @@ export default function EventsManagementPage() {
                 </p>
               </div>
             </div>
-            <Link href={`/${lang}/events/create`}>
-              <Button>
+            <Link href={`/${lang}/dash/events/setup`}>
+              <Button className="bg-indigo-600 hover:bg-indigo-700">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Event
               </Button>
@@ -113,7 +113,7 @@ export default function EventsManagementPage() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               You haven't created any events yet. Start by creating your first event to connect with your community and organize gatherings.
             </p>
-            <Link href={`/${lang}/events/create`}>
+            <Link href={`/${lang}/dash/events/setup`}>
               <Button size="lg">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Event
@@ -144,9 +144,9 @@ export default function EventsManagementPage() {
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
                               {new Date(event.eventDate).toLocaleDateString()} at{" "}
-                              {new Date(event.eventDate).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
+                              {new Date(event.eventDate).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
                               })}
                             </span>
                             <span className="flex items-center gap-1">

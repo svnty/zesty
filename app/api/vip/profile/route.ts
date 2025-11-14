@@ -96,7 +96,15 @@ export async function POST(req: NextRequest) {
     try {
       const contentQuery: any = {
         where: { vipPageId: vipPage.id },
-        include: { _count: { select: { likes: true, comments: true } }, likes: user?.zesty_id ? { where: { userId: user.zesty_id }, select: { id: true } } : false },
+        include: { 
+          _count: { 
+            select: { 
+              likes: true, 
+              comments: true 
+            } 
+          }, 
+          likes: user?.zesty_id ? { where: { zesty_id: user.zesty_id }, select: { id: true } } : false 
+        },
         orderBy: { createdAt: 'desc' },
         take: limit + 1,
       };

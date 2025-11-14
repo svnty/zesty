@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Video, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Video, Pencil, Plus, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +25,8 @@ export default function LiveManagementPage() {
   const { data: session, status, user } = useSupabaseSession();
   const [channel, setChannel] = useState<LiveChannel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [isTogglingActive, setIsTogglingActive] = useState<boolean>(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -74,9 +74,9 @@ export default function LiveManagementPage() {
 
   const toggleActive = async (nextState?: boolean) => {
     if (!channel) return;
+    setIsTogglingActive(true);
     const intended = typeof nextState === "boolean" ? nextState : !channel.active;
     setChannel((c) => (c ? { ...c, active: intended } : c));
-    setSaving(true);
 
     try {
       const res = await fetch(`/api/live/toggle-active`, {
@@ -91,7 +91,7 @@ export default function LiveManagementPage() {
       console.error("toggleActive error:", err);
       setChannel((c) => (c ? { ...c, active: !intended } : c));
     } finally {
-      setSaving(false);
+      setIsTogglingActive(false);
     }
   };
 
@@ -123,10 +123,6 @@ export default function LiveManagementPage() {
                 <p className="text-muted-foreground mt-1">Manage your livestream channel</p>
               </div>
             </div>
-            <Button onClick={createChannel} disabled={creating}>
-              <Plus className="w-4 h-4 mr-2" />
-              {creating ? 'Creating...' : 'Create / Edit Channel'}
-            </Button>
           </div>
         </div>
       </div>
@@ -162,11 +158,22 @@ export default function LiveManagementPage() {
 
               <div className="flex flex-col items-end gap-3 ml-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{channel.active ? "Enabled" : "Disabled"}</span>
-                  <Switch checked={channel.active} onCheckedChange={(v) => toggleActive(Boolean(v))} />
+                  <span className="text-sm text-muted-foreground">
+                    {isTogglingActive ? "Updating..." : channel.active ? "Published" : "Draft"}
+                    </span>
+                  <Switch 
+                  disabled={isTogglingActive}
+                    checked={channel.active} 
+                    onCheckedChange={(v) => toggleActive(Boolean(v))} 
+                  />
                 </div>
                 <div className="flex gap-2">
-                  <Link href={`/${lang}/dash/live/create`}>
+                  <Link href={`/${lang}/live/${user?.slug || ''}`}>
+                    <Button variant="outline" size="sm">
+                      {channel.active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </Button>
+                  </Link>
+                  <Link href={`/${lang}/dash/live/setup`}>
                     <Button variant="outline" size="sm">
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit

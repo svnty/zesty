@@ -3,7 +3,7 @@
 import { redirect, useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Building, FileText, Users, ChevronDown, UserPlus } from "lucide-react";
+import { ArrowLeft, Briefcase, Building, FileText, Users, ChevronDown, UserPlus, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -61,7 +61,7 @@ export default function JobsManagementPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                <Briefcase className="w-8 h-8 text-blue-500" />
+                <Briefcase className="w-8 h-8 text-amber-800" />
                 Studios & Jobs
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -92,13 +92,13 @@ export default function JobsManagementPage() {
                   </Button>}>
                 </MenuTrigger>
                 <MenuPopup>
-                  <Link href={`/${lang}/jobs/create-studio`}>
+                  <Link href={`/${lang}/dash/studio/create-studio`}>
                     <MenuItem className="cursor-pointer">
-                      <Building className="w-4 h-4 mr-2" />
+                      <Megaphone className="w-4 h-4 mr-2" />
                       Create Studio
                     </MenuItem>
                   </Link>
-                  <Link href={`/${lang}/jobs/join-studio`}>
+                  <Link href={`/${lang}/dash/jobs/join-studio`}>
                     <MenuItem className="cursor-pointer">
                       <UserPlus className="w-4 h-4 mr-2" />
                       Join Studio as Staff
@@ -118,7 +118,7 @@ export default function JobsManagementPage() {
                 <div className="flex gap-3 justify-center">
                   <Link href={`/${lang}/jobs/create-studio`}>
                     <Button size="lg">
-                      <Building className="w-4 h-4 mr-2" />
+                      <Megaphone className="w-4 h-4 mr-2" />
                       Create Studio
                     </Button>
                   </Link>

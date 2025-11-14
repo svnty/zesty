@@ -69,7 +69,6 @@ export default function CreateEscortAdPage() {
   const { lang } = useParams<{ lang: string }>();
   const router = useRouter();
   const { data: session, status, user } = useSupabaseSession();
-  
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -79,6 +78,7 @@ export default function CreateEscortAdPage() {
   const [extras, setExtras] = useState<Extra[]>([]);
   const [daysAvailable, setDaysAvailable] = useState<string[]>([]);
   const [active, setActive] = useState(true);
+  const [isFetchingExistingAd, setIsFetchingExistingAd] = useState(true);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -87,6 +87,7 @@ export default function CreateEscortAdPage() {
   }, [status]);
 
   const fetchExistingAd = async () => {
+    setIsFetchingExistingAd(true);
     try {
       const response = await fetch("/api/escorts/my-ad");
       if (response.ok) {
@@ -120,6 +121,8 @@ export default function CreateEscortAdPage() {
       }
     } catch (error) {
       console.error("Error fetching ad:", error);
+    } finally {
+      setIsFetchingExistingAd(false);
     }
   };
 
@@ -270,7 +273,13 @@ export default function CreateEscortAdPage() {
         </div>
       </div>
 
-      {/* Form */}
+      {isFetchingExistingAd && (
+        <div className="flex items-center justify-center h-[calc(100vh-16rem)] min-h-52">
+          <Spinner className="size-8 text-muted-foreground" />
+        </div>
+      )}
+
+      {!isFetchingExistingAd && (
       <form onSubmit={handleSubmit} className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Basic Info */}
         <Card className="p-6 mb-6">
@@ -489,7 +498,7 @@ export default function CreateEscortAdPage() {
               <Badge
                 key={day.value}
                 variant={daysAvailable.includes(day.value) ? "default" : "outline"}
-                className="cursor-pointer px-4 py-2"
+                className={"cursor-pointer px-4 py-2 " + (daysAvailable.includes(day.value) ? "bg-green-500/10 border border-green-500/20 text-black" : "bg-red-500/10 border text-black")}
                 onClick={() => toggleDay(day.value)}
               >
                 {day.label}
@@ -520,6 +529,7 @@ export default function CreateEscortAdPage() {
           </Button>
         </div>
       </form>
+      )}
     </div>
   );
 }

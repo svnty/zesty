@@ -113,6 +113,8 @@ model User {
 
   pushSubscriptions PushSubscription[] @relation("pushSubscriptions")
   
+  favouritedEscorts PrivateAd[] @relation("escortFollowers")
+  
   datingPages DatingPage[]
 
   lastActive      DateTime? @default(now())
@@ -132,7 +134,7 @@ model VIPPage {
   isFree            Boolean @default(false)
 
   user            User @relation(fields: [zesty_id], references: [zesty_id])
-  zesty_id          String
+  zesty_id        String
 
   content         VIPContent[]
   subscriptions   VIPSubscription[]
@@ -199,7 +201,6 @@ model VIPSubscription {
   active      Boolean @default(true)
   expiresAt   DateTime? // Null for lifetime/free subscriptions
   
-  // Payment tracking
   amountPaid  Int // Amount in cents
   stripeSubscriptionId String?
   
@@ -353,7 +354,7 @@ model PrivateAdService {
 
 model PrivateAdServiceOption {
   id            String @id @default(cuid())
-  service       PrivateAdService @relation(fields: [serviceId], references: [id])
+  service       PrivateAdService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   serviceId     String
 
   durationMin   Int      // 15, 30, 60
@@ -387,6 +388,7 @@ model PrivateAd {
   acceptsAgeRange Int[]  // [minAge, maxAge]
   extras          PrivateAdExtra[]
   daysAvailable   PrivateAdDaysAvailable[]
+  followers       User[] @relation("escortFollowers")
 
   worker          User @relation(fields: [workerId], references: [zesty_id])
   workerId        String

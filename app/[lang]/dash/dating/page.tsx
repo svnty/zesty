@@ -27,6 +27,7 @@ export default function DatingManagementPage() {
   const [profile, setProfile] = useState<DatingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter(); 
+  const [isTogglingActive, setIsTogglingActive] = useState<boolean>(false);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -69,24 +70,24 @@ export default function DatingManagementPage() {
   const toggleActive = async (current: boolean) => {
     if (!profile) return;
 
-    // optimistic update
-    const prev = profile.active;
-    setProfile({ ...profile, active: !prev });
+    setIsTogglingActive(true);
 
     try {
       const res = await fetch("/api/dating/toggle-active", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !prev }),
+        body: JSON.stringify({ active: !profile.active }),
       });
 
       if (!res.ok) {
         throw new Error("Failed to toggle");
       }
+
+      setProfile({ ...profile, active: !profile.active });
     } catch (err) {
       console.error("Toggle failed:", err);
-      // revert
-      setProfile({ ...profile, active: prev });
+    } finally {
+      setIsTogglingActive(false);
     }
   };
 
@@ -128,10 +129,6 @@ export default function DatingManagementPage() {
                 <p className="text-muted-foreground mt-1">Manage your dating profile</p>
               </div>
             </div>
-            <Button onClick={createProfile} disabled={creating}>
-              <Plus className="w-4 h-4 mr-2" />
-              {creating ? 'Creating...' : 'Create / Edit Profile'}
-            </Button>
           </div>
         </div>
       </div>
@@ -168,8 +165,14 @@ export default function DatingManagementPage() {
 
               <div className="flex flex-col items-end gap-3 ml-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{profile.active ? 'Published' : 'Unpublished'}</span>
-                  <Switch checked={profile.active} onCheckedChange={() => toggleActive(profile.active)} />
+                  <span className="text-sm text-muted-foreground">
+                    {isTogglingActive ? "Updating..." : profile.active ? "Published" : "Draft"}
+                    </span>
+                  <Switch 
+                    disabled={isTogglingActive}
+                    checked={profile.active} 
+                    onCheckedChange={() => toggleActive(profile.active)}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Link href={`/${lang}/dating/${user?.slug || ''}`}>
@@ -177,7 +180,7 @@ export default function DatingManagementPage() {
                       {profile.active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </Button>
                   </Link>
-                  <Link href={`/${lang}/dash/dating/create`}>
+                  <Link href={`/${lang}/dash/dating/setup`}>
                     <Button variant="outline" size="sm">
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit

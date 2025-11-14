@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
                 options: true,
               },
             },
+            extras: true,
           },
           take: 1,
         }

@@ -34,7 +34,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setStatus(session ? 'authenticated' : 'unauthenticated');
-      
+
       if (session) {
         supabase
           .from('zesty_user')
@@ -42,7 +42,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           .eq('supabaseId', session.user.id)
           .single()
           .then(({ data }) => {
-            if (data) setUser({...data as ZestyUser, ...session.user});
+            if (data) setUser({ ...data as ZestyUser, ...session.user });
           });
       }
     });
@@ -50,26 +50,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // Single auth state listener for entire app
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('[SUPBASE_PROVIDER] Auth state changed:', _event, session);
+      if (_event === 'INITIAL_SESSION') {
+        return;
+      }
+      if (_event === 'SIGNED_OUT') {
+        setUser(null);
+        setSession(null);
+        setStatus('unauthenticated');
+        return;
+      }
+      
       setSession(session);
       setStatus(session ? 'authenticated' : 'unauthenticated');
 
       if (session) {
-        if (_event === 'INITIAL_SESSION') {
-          return;
-        }
-        if (_event === 'SIGNED_OUT') {
-          setUser(null);
-          setSession(null);
-          setStatus('unauthenticated');
-          return;
-        }
         supabase
           .from('zesty_user')
           .select('*')
           .eq('supabaseId', session.user.id)
           .single()
           .then(({ data }) => {
-            if (data) setUser({...data as ZestyUser, ...session.user});
+            if (data) setUser({ ...data as ZestyUser, ...session.user });
           });
       } else {
         setUser(null);
@@ -91,10 +92,10 @@ export function useSupabaseSession() {
   if (!context) {
     throw new Error('useSupabaseSession must be used within SupabaseProvider');
   }
-  return { 
-    data: context.session, 
-    status: context.status, 
-    user: context.user, 
-    supabase: context.supabase 
+  return {
+    data: context.session,
+    status: context.status,
+    user: context.user,
+    supabase: context.supabase
   };
 }

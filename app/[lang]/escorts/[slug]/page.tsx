@@ -11,7 +11,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Button } from "@/components/origin_ui_old/button";
-import { ArrowLeft, Bookmark, Camera, CircleCheck, CircleX, Radio, Send, TriangleAlert, Webcam, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, Camera, CircleCheck, CircleX, Radio, Send, TriangleAlert, Webcam, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ export default function EscortSlugPage() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [isHovered, setIsHovered] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [favouriting, setFavouriting] = useState(false);
 
   useEffect(() => {
     if (!slug || hasLoadedRef.current) return;
@@ -137,9 +138,29 @@ export default function EscortSlugPage() {
       </div>
     );
   }
+
   // Separate default image from other images
   const defaultImage = profile.images.find(img => img.default);
   const otherImages = profile.images.filter(img => !img.default);
+
+  async function handleAddToFavourites(slug: string): Promise<void> {
+    setFavouriting(true);
+    try {
+      const res = await fetch("/api/escorts/favourite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to add to favourites");
+      }
+    } catch (err) {
+      throw err;
+    } finally {
+      setFavouriting(false);
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -443,7 +464,15 @@ export default function EscortSlugPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2 mt-4">
-              <Button variant="outline" size="sm" className="w-full opacity-70 hover:opacity-100"><Bookmark />Add to favourites</Button>
+              <Button 
+                disabled={favouriting}
+                onClick={() => handleAddToFavourites(profile.slug)}
+                variant="outline" 
+                size="sm" 
+                className="w-full opacity-70 hover:opacity-100"
+              >
+                {favouriting ? 'Adding to favourites...' : profile.ad.followers.length > 0 ? (<><BookmarkCheck />Favourited</>) : (<><Bookmark />Add to favourites</>)}
+              </Button>
               <div className="flex flex-row gap-2">
                 <Link href={`/${lang}/vip/${profile.slug}`} className={`flex w-full ${profile.vip ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Camera />VIP content</Button></Link>
                 <Link href={`/${lang}/live/${profile.slug}`} className={`flex w-full ${profile.liveStreamPage ? 'pointer-events-auto cursor-pointer opacity-80 hover:opacity-100' : 'pointer-events-none opacity-40'}`}><Button variant="outline" size="sm" className="w-full"><Webcam />Live streams</Button></Link>

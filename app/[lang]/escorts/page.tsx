@@ -28,6 +28,7 @@ export interface EscortProfileData {
     acceptsBodyType: BodyType[];
     acceptsAgeRange: number[];
     daysAvailable: PrivateAdDaysAvailable[];
+    followers: [];
     services: ({
       options: {
         id: string;

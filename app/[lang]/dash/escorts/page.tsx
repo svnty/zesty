@@ -29,12 +29,12 @@ export default function EscortsManagementPage() {
   const { data: session, status, user } = useSupabaseSession();
   const [ads, setAds] = useState<PrivateAd[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTogglingActive, setIsTogglingActive] = useState<boolean>(false);
+  const [hasError, setHasError] = useState<any | false>(false);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchAds();
-    } else {
-      setLoading(false);
     }
   }, [status]);
 
@@ -51,12 +51,14 @@ export default function EscortsManagementPage() {
       }
     } catch (error) {
       console.error("Error fetching ads:", error);
+      setHasError(error);
     } finally {
       setLoading(false);
     }
   };
 
   const toggleAdActive = async (adId: string, currentActive: boolean) => {
+    setIsTogglingActive(true);
     try {
       const response = await fetch("/api/escorts/ad", {
         method: "PATCH",
@@ -71,6 +73,9 @@ export default function EscortsManagementPage() {
       }
     } catch (error) {
       console.error("Error toggling ad:", error);
+      setHasError(error);
+    } finally {
+      setIsTogglingActive(false);
     }
   };
 
@@ -90,6 +95,18 @@ export default function EscortsManagementPage() {
     });
     router.push(`/${lang}`);
     return;
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-16rem)] min-h-52">
+        <p className="text-red-500">An error occurred while loading your ads. Please try again later.</p>
+        <br />
+        <code>
+          {JSON.stringify(hasError)}
+        </code>
+      </div>
+    );
   }
 
   return (
@@ -115,12 +132,6 @@ export default function EscortsManagementPage() {
                 </p>
               </div>
             </div>
-            <Link href={`/${lang}/dash/escorts/create`}>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Ad
-              </Button>
-            </Link>
           </div>
         </div>
       </div>
@@ -134,7 +145,7 @@ export default function EscortsManagementPage() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               You haven't created any private ads yet. Click the button below to create your first ad and start attracting clients.
             </p>
-            <Link href={`/${lang}/dash/escorts/create`}>
+            <Link href={`/${lang}/dash/escorts/setup`}>
               <Button size="lg">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Ad
@@ -167,9 +178,10 @@ export default function EscortsManagementPage() {
                   <div className="flex flex-col items-end gap-3 ml-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
-                        {ad.active ? "Published" : "Unpublished"}
+                        {isTogglingActive ? "Updating..." : ad.active ? "Published" : "Draft"}
                       </span>
                       <Switch
+                        disabled={isTogglingActive}
                         checked={ad.active}
                         onCheckedChange={() => toggleAdActive(ad.id, ad.active)}
                       />
@@ -180,7 +192,7 @@ export default function EscortsManagementPage() {
                           {ad.active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </Button>
                       </Link>
-                      <Link href={`/${lang}/dash/escorts/create`}>
+                      <Link href={`/${lang}/dash/escorts/setup`}>
                         <Button variant="outline" size="sm">
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
